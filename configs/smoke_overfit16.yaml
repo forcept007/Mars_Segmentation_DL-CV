@@ -1,0 +1,8 @@
+base: baseline_r50_full.yaml
+data:
+  overfit: 16
+schedule:
+  max_iters: 500
+  eval_interval: 100
+  save_interval: 100
+  log_interval: 10

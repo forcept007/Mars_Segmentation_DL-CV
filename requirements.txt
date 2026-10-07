@@ -5,5 +5,8 @@ pyarrow==18
 python-dotenv>=1.2.3
 tensorflow==2.21.0
 torch==2.13.0
+torchvision
+pyyaml
+tensorboard
 matplotlib>=3.11.2
 pillow>=12.3.0
