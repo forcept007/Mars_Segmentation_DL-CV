@@ -1,0 +1,3 @@
+base: baseline_r50_full.yaml
+schedule:
+  max_iters: 40000

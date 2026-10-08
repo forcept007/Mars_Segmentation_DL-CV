@@ -1,0 +1,5 @@
+base: baseline_r50_full.yaml
+schedule:
+  stop_iter: 2000
+  eval_interval: 500
+  save_interval: 500
