@@ -4,12 +4,16 @@ from torch import nn
 import torch.nn.functional as F
 from torchvision.models import resnet50, ResNet50_Weights
 from torchvision.models._utils import IntermediateLayerGetter
+import math
 
 from data import NUM_CLASSES
 
 WEIGHTS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pretrained", "resnet50.pth")
 MODEL_DEFAULTS = {"encoder": "resnet50", "output_stride": 16, "pretrained": True,
-                  "weights_path": WEIGHTS_PATH, "num_classes": NUM_CLASSES}
+                  "weights_path": WEIGHTS_PATH, "num_classes": NUM_CLASSES,
+                  "hub_dir": None,
+                  "dinov2_weights": None,
+                  "dilations": None}
 
 # https://github.com/LiheYoung/UniMatch/blob/main/model/backbone/resnet.py
 def deep_stem_resnet50(replace_stride_with_dilation, weights_path=None):
@@ -31,7 +35,34 @@ def deep_stem_resnet50(replace_stride_with_dilation, weights_path=None):
         net.load_state_dict(torch.load(weights_path, map_location="cpu"))
     return net
 
-def build_encoder(name, output_stride, pretrained, weights_path):
+class DINOv2Encoder(nn.Module):
+    def __init__(self, name, pretrained=True, weights_path=None, hub_dir=None):
+        super().__init__()
+        kwargs = {"pretrained": bool(pretrained and not weights_path)}
+        if hub_dir:
+            vit = torch.hub.load(hub_dir, name, source="local", **kwargs)
+        else:
+            vit = torch.hub.load("facebookresearch/dinov2", name, **kwargs)
+        if pretrained and weights_path:
+            vit.load_state_dict(torch.load(weights_path, map_location="cpu"))
+        self.vit = vit
+        self.patch = vit.patch_size
+        self.embed_dim = vit.embed_dim
+        depth = len(vit.blocks)
+        self.layers = [depth // 4 - 1, depth - 1]
+
+    def forward(self, x):
+        h, w = x.shape[-2:]
+        ph, pw = math.ceil(h / self.patch) * self.patch, math.ceil(w / self.patch) * self.patch
+        if (ph, pw) != (h, w):
+            x = F.interpolate(x, size=(ph, pw), mode="bilinear", align_corners=False)
+        low, high = self.vit.get_intermediate_layers(x, n=self.layers, reshape=True)
+        return {"low": low, "high": high}
+
+def build_encoder(name, output_stride, pretrained, weights_path, hub_dir=None, dinov2_weights=None):
+    if name.startswith("dinov2"):
+        enc = DINOv2Encoder(name, pretrained, dinov2_weights, hub_dir)
+        return enc, enc.embed_dim, enc.embed_dim
     dilate = {16: [False, False, True], 8: [False, True, True]}[output_stride]
     if name == "resnet50":
         net = deep_stem_resnet50(dilate, weights_path if pretrained else None)
