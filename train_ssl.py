@@ -111,15 +111,17 @@ def main():
 
     # Copying the rest of the training loop from train.py, now with student and teacher models
     # infused in the training loop
-    start_iter, best_miou, best_iter = 0, 0.0, 0
+    start_iter, best_t_miou, best_t_iter, best_s_miou, best_s_iter = 0, 0.0, 0, 0.0, 0
     last_path = os.path.join(save_dir, "last.pth")
     if os.path.exists(last_path):
         ckpt = torch.load(last_path, map_location=device)
-        student.load_state_dict(ckpt["model"])
+        student.load_state_dict(ckpt["student"])
+        teacher.load_state_dict(ckpt["teacher"])
         optimizer.load_state_dict(ckpt["optimizer"])
         if ckpt["scaler"]:
             scaler.load_state_dict(ckpt["scaler"])
-        start_iter, best_miou, best_iter = ckpt["iter"], ckpt["best_miou"], ckpt["best_iter"]
+        start_iter, best_t_miou, best_t_iter = ckpt["iter"], ckpt["best_t_miou"], ckpt["best_t_iter"]
+        best_s_miou, best_s_iter = ckpt["best_s_miou"], ckpt["best_s_iter"]
         log.info(f"resumed from {last_path} at iter {start_iter}, "
                     f"lr {train.poly_lr(optim_cfg['lr'], start_iter, sched['max_iters'], optim_cfg['poly_power']):.6f}")
 
@@ -163,28 +165,48 @@ def main():
             loss_sum, window, window_start = torch.zeros((), device=device), 0, time.time()
 
         if done % sched["eval_interval"] == 0 or done == stop_iter:
-            metrics = evaluate(student, val_loader, device)
-            if metrics["mIoU"] > best_miou:
-                best_miou, best_iter = metrics["mIoU"], done
-                torch.save({"model": student.state_dict(), "model_cfg": cfg["model"], "iter": done, "mIoU": best_miou},
-                            os.path.join(save_dir, "best.pth"))
+            s_metrics = evaluate(student, val_loader, device)
+            t_metrics = evaluate(teacher, val_loader, device)
+
+            if s_metrics["mIoU"] > best_s_miou:
+                best_s_miou, best_s_iter = s_metrics["mIoU"], done
+                torch.save({"model": student.state_dict(), "model_cfg": cfg["model"], "iter": done, "mIoU": best_s_miou},
+                            os.path.join(save_dir, "student_best.pth"))
+
+            if t_metrics["mIoU"] > best_t_miou:
+                best_t_miou, best_t_iter = t_metrics["mIoU"], done
+                torch.save({"model": teacher.state_dict(), "model_cfg": cfg["model"], "iter": done, "mIoU": best_t_miou},
+                            os.path.join(save_dir, "teacher_best.pth"))
+            
             for name in ("mIoU", "mAcc", "aAcc"):
-                writer.add_scalar(f"val/{name}", metrics[name], done)
-            writer.add_scalar("val/rock_IoU", metrics["IoU"]["rock"], done)
-            writer.add_scalar("val/rock_to_bedrock", metrics["rock"]["rock_to_bedrock"], done)
-            with open(os.path.join(save_dir, "metrics.jsonl"), "a") as f:
-                f.write(json.dumps({"iter": done, **metrics}) + "\n")
-            log.info(f"iter {done} val mIoU {metrics['mIoU']:.2f} mAcc {metrics['mAcc']:.2f} "
-                        f"rock IoU {metrics['IoU']['rock']:.2f} best mIoU {best_miou:.2f} at iter {best_iter}")
+                writer.add_scalar(f"s_val/{name}", s_metrics[name], done)
+                writer.add_scalar(f"t_val/{name}", t_metrics[name], done)
+            writer.add_scalar("s_val/rock_IoU", s_metrics["IoU"]["rock"], done)
+            writer.add_scalar("t_val/rock_IoU", t_metrics["IoU"]["rock"], done)
+            writer.add_scalar("s_val/rock_to_bedrock", s_metrics["rock"]["rock_to_bedrock"], done)
+            writer.add_scalar("t_val/rock_to_bedrock", t_metrics["rock"]["rock_to_bedrock"], done)
+
+            with open(os.path.join(save_dir, "s_metrics.jsonl"), "a") as f:
+                f.write(json.dumps({"iter": done, **s_metrics}) + "\n")
+            log.info(f"student iter {done} val mIoU {s_metrics['mIoU']:.2f} mAcc {s_metrics['mAcc']:.2f} "
+                        f"rock IoU {s_metrics['IoU']['rock']:.2f} best mIoU {best_s_miou:.2f} at iter {best_s_iter}")
+
+            with open(os.path.join(save_dir, "t_metrics.jsonl"), "a") as f:
+                f.write(json.dumps({"iter": done, **t_metrics}) + "\n")
+            log.info(f"teacher iter {done} val mIoU {t_metrics['mIoU']:.2f} mAcc {t_metrics['mAcc']:.2f} "
+                        f"rock IoU {t_metrics['IoU']['rock']:.2f} best mIoU {best_t_miou:.2f} at iter {best_t_iter}")
+
             window_start = time.time()
 
         if done % sched["save_interval"] == 0 or done % sched["eval_interval"] == 0 or done == stop_iter:
-            torch.save({"model": student.state_dict(), "optimizer": optimizer.state_dict(), "scaler": scaler.state_dict(),
-                        "model_cfg": cfg["model"], "iter": done, "best_miou": best_miou, "best_iter": best_iter}, last_path)
+            torch.save({"student": student.state_dict(), "teacher": teacher.state_dict(), "optimizer": optimizer.state_dict(), "scaler": scaler.state_dict(),
+                        "model_cfg": cfg["model"], "iter": done, "best_s_miou": best_s_miou, "best_s_iter": best_s_iter, 
+                        "best_t_miou": best_t_miou, "best_t_iter": best_t_iter}, last_path)
             window_start = time.time()
 
     writer.close()
-    log.info(f"finished at iter {stop_iter}; best val mIoU {best_miou:.2f} at iter {best_iter}")
+    log.info(f"Student finished at iter {stop_iter}; best val mIoU {best_s_miou:.2f} at iter {best_s_iter}")
+    log.info(f"Teacher finished at iter {stop_iter}; best val mIoU {best_t_miou:.2f} at iter {best_t_iter}")
 
 if __name__ == "__main__":
     main()
