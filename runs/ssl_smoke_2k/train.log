@@ -1,0 +1,52 @@
+2026-10-14 22:15:51,397 {"seed": 0, "amp": true, "model": {"encoder": "resnet50", "output_stride": 16, "pretrained": true}, "data": {"root": "/home/ubuntu/data/S5Mars_data", "batch_size": 8, "eval_batch_size": 4, "num_workers": 4, "scale_range": [0.5, 2.0], "overfit": 0}, "optim": {"lr": 0.01, "head_lr_mult": 10.0, "momentum": 0.9, "weight_decay": 0.0001, "poly_power": 0.9}, "schedule": {"max_iters": 150000, "stop_iter": 2000, "eval_interval": 500, "save_interval": 500, "log_interval": 50}, "ssl": {"t_hard": 0.5, "t_soft": 0.9, "lambda_u": 2.0, "lambda_s": 1.0, "ema_max": 0.996}}
+2026-10-14 22:15:51,449 device cuda, amp True
+2026-10-14 22:16:27,872 iter 50/150000 loss 6.6825 lr 0.009997 0.72s/it eta 0.4h mem 7.2GB
+2026-10-14 22:16:46,380 iter 100/150000 loss 5.7162 lr 0.009994 0.37s/it eta 0.2h mem 7.2GB
+2026-10-14 22:17:04,812 iter 150/150000 loss 5.5145 lr 0.009991 0.37s/it eta 0.2h mem 7.2GB
+2026-10-14 22:17:23,240 iter 200/150000 loss 5.3145 lr 0.009988 0.37s/it eta 0.2h mem 7.2GB
+2026-10-14 22:17:41,733 iter 250/150000 loss 5.2540 lr 0.009985 0.37s/it eta 0.2h mem 7.2GB
+2026-10-14 22:18:00,122 iter 300/150000 loss 5.1759 lr 0.009982 0.37s/it eta 0.2h mem 7.2GB
+2026-10-14 22:18:18,603 iter 350/150000 loss 5.0777 lr 0.009979 0.37s/it eta 0.2h mem 7.2GB
+2026-10-14 22:18:37,113 iter 400/150000 loss 5.0019 lr 0.009976 0.37s/it eta 0.2h mem 7.2GB
+2026-10-14 22:18:55,538 iter 450/150000 loss 4.9825 lr 0.009973 0.37s/it eta 0.2h mem 7.2GB
+2026-10-14 22:19:13,999 iter 500/150000 loss 4.9973 lr 0.009970 0.37s/it eta 0.2h mem 7.2GB
+2026-10-14 22:19:39,093 student iter 500 val mIoU 11.88 mAcc 20.44 rock IoU 0.00 best mIoU 11.88 at iter 500
+2026-10-14 22:19:39,094 teacher iter 500 val mIoU 5.80 mAcc 11.07 rock IoU 0.00 best mIoU 5.80 at iter 500
+2026-10-14 22:19:57,940 iter 550/150000 loss 4.9535 lr 0.009967 0.37s/it eta 0.1h mem 17.9GB
+2026-10-14 22:20:16,379 iter 600/150000 loss 4.9127 lr 0.009964 0.37s/it eta 0.1h mem 17.9GB
+2026-10-14 22:20:35,363 iter 650/150000 loss 4.9892 lr 0.009961 0.38s/it eta 0.1h mem 17.9GB
+2026-10-14 22:20:53,833 iter 700/150000 loss 4.8517 lr 0.009958 0.37s/it eta 0.1h mem 17.9GB
+2026-10-14 22:21:12,283 iter 750/150000 loss 4.8155 lr 0.009955 0.37s/it eta 0.1h mem 17.9GB
+2026-10-14 22:21:30,733 iter 800/150000 loss 4.7849 lr 0.009952 0.37s/it eta 0.1h mem 17.9GB
+2026-10-14 22:21:49,210 iter 850/150000 loss 4.9191 lr 0.009949 0.37s/it eta 0.1h mem 17.9GB
+2026-10-14 22:22:07,674 iter 900/150000 loss 4.8897 lr 0.009946 0.37s/it eta 0.1h mem 17.9GB
+2026-10-14 22:22:26,202 iter 950/150000 loss 4.5975 lr 0.009943 0.37s/it eta 0.1h mem 17.9GB
+2026-10-14 22:22:44,720 iter 1000/150000 loss 4.4053 lr 0.009940 0.37s/it eta 0.1h mem 17.9GB
+2026-10-14 22:23:04,061 student iter 1000 val mIoU 18.67 mAcc 25.08 rock IoU 0.00 best mIoU 18.67 at iter 1000
+2026-10-14 22:23:04,061 teacher iter 1000 val mIoU 10.46 mAcc 15.68 rock IoU 0.00 best mIoU 10.46 at iter 1000
+2026-10-14 22:23:26,271 iter 1050/150000 loss 4.0723 lr 0.009937 0.37s/it eta 0.1h mem 17.9GB
+2026-10-14 22:23:44,712 iter 1100/150000 loss 3.8883 lr 0.009934 0.37s/it eta 0.1h mem 17.9GB
+2026-10-14 22:24:03,341 iter 1150/150000 loss 4.0128 lr 0.009931 0.37s/it eta 0.1h mem 17.9GB
+2026-10-14 22:24:21,816 iter 1200/150000 loss 4.0450 lr 0.009928 0.37s/it eta 0.1h mem 17.9GB
+2026-10-14 22:24:40,285 iter 1250/150000 loss 3.9351 lr 0.009925 0.37s/it eta 0.1h mem 17.9GB
+2026-10-14 22:24:59,305 iter 1300/150000 loss 3.9005 lr 0.009922 0.38s/it eta 0.1h mem 17.9GB
+2026-10-14 22:25:17,791 iter 1350/150000 loss 4.0343 lr 0.009919 0.37s/it eta 0.1h mem 17.9GB
+2026-10-14 22:25:36,252 iter 1400/150000 loss 3.8593 lr 0.009916 0.37s/it eta 0.1h mem 17.9GB
+2026-10-14 22:25:54,804 iter 1450/150000 loss 3.8425 lr 0.009913 0.37s/it eta 0.1h mem 17.9GB
+2026-10-14 22:26:13,278 iter 1500/150000 loss 3.6416 lr 0.009910 0.37s/it eta 0.1h mem 17.9GB
+2026-10-14 22:26:30,899 student iter 1500 val mIoU 13.54 mAcc 21.73 rock IoU 0.00 best mIoU 18.67 at iter 1000
+2026-10-14 22:26:30,900 teacher iter 1500 val mIoU 9.80 mAcc 14.93 rock IoU 0.00 best mIoU 10.46 at iter 1000
+2026-10-14 22:26:52,452 iter 1550/150000 loss 3.5209 lr 0.009907 0.37s/it eta 0.0h mem 17.9GB
+2026-10-14 22:27:10,938 iter 1600/150000 loss 3.3171 lr 0.009904 0.37s/it eta 0.0h mem 17.9GB
+2026-10-14 22:27:29,467 iter 1650/150000 loss 3.2694 lr 0.009901 0.37s/it eta 0.0h mem 17.9GB
+2026-10-14 22:27:47,963 iter 1700/150000 loss 3.2466 lr 0.009898 0.37s/it eta 0.0h mem 17.9GB
+2026-10-14 22:28:06,497 iter 1750/150000 loss 3.0426 lr 0.009895 0.37s/it eta 0.0h mem 17.9GB
+2026-10-14 22:28:25,025 iter 1800/150000 loss 3.1368 lr 0.009892 0.37s/it eta 0.0h mem 17.9GB
+2026-10-14 22:28:43,478 iter 1850/150000 loss 2.6792 lr 0.009889 0.37s/it eta 0.0h mem 17.9GB
+2026-10-14 22:29:02,663 iter 1900/150000 loss 2.8976 lr 0.009886 0.38s/it eta 0.0h mem 17.9GB
+2026-10-14 22:29:21,138 iter 1950/150000 loss 2.7693 lr 0.009883 0.37s/it eta 0.0h mem 17.9GB
+2026-10-14 22:29:39,590 iter 2000/150000 loss 2.7506 lr 0.009880 0.37s/it eta 0.0h mem 17.9GB
+2026-10-14 22:29:57,613 student iter 2000 val mIoU 14.13 mAcc 20.61 rock IoU 0.00 best mIoU 18.67 at iter 1000
+2026-10-14 22:29:57,613 teacher iter 2000 val mIoU 20.58 mAcc 26.60 rock IoU 0.00 best mIoU 20.58 at iter 2000
+2026-10-14 22:30:01,315 Student finished at iter 2000; best val mIoU 18.67 at iter 1000
+2026-10-14 22:30:01,315 Teacher finished at iter 2000; best val mIoU 20.58 at iter 2000
