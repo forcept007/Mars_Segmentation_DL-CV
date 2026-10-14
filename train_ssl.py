@@ -9,14 +9,12 @@ import copy
 import numpy as np
 import torch
 import yaml
-from torch import nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 import train
 
-from data import DATA_ROOT, IGNORE_INDEX, S5MarsDataset, eval_transform, get_dataloaders
+from data import NUM_CLASSES, CLASSES
 from evaluate import evaluate
 from models import build_model
 
@@ -52,7 +50,17 @@ def ssl_loss(student_weak: torch.Tensor, student_strong: torch.Tensor, teacher_w
     soft = -(prob * log_p).sum(dim=1)
     soft = (soft * soft_mask).sum() / num_unlabeled
 
-    return L_sup + cfg['lambda_u'] * (hard + cfg['lambda_s'] * soft)
+    # Compute the loss
+    loss = L_sup + cfg['lambda_u'] * (hard + cfg['lambda_s'] * soft)
+
+    # Return the number of pixels per class per label
+    num_classes = teacher_weak.shape[1]
+    stats = {"unlabeled": torch.bincount(pseudo[unlabeled], minlength=num_classes),
+             "hard": torch.bincount(pseudo[hard_mask], minlength=num_classes),
+             "soft": torch.bincount(pseudo[soft_mask], minlength=num_classes),
+             "both": torch.bincount(pseudo[hard_mask & soft_mask], minlength=num_classes)}
+
+    return (loss, stats)
 
 def ema_momentum(iteration: int, ema_max: float = 0.996):
     # iteration is how many optimizer steps training has taken so far. 
@@ -130,6 +138,8 @@ def main():
     batches = train.forever(train_loader)
     student.train()
     loss_sum, window, window_start = torch.zeros((), device=device), 0, time.time()
+    counts = {"unlabeled": torch.zeros((NUM_CLASSES), device=device, dtype=torch.long), "hard": torch.zeros((NUM_CLASSES), device=device, dtype=torch.long), 
+              "soft": torch.zeros((NUM_CLASSES), device=device, dtype=torch.long), "both": torch.zeros((NUM_CLASSES), device=device, dtype=torch.long)}
     for it in range(start_iter, stop_iter):
         lr = train.poly_lr(optim_cfg["lr"], it, max_iters, optim_cfg["poly_power"])
         for group in optimizer.param_groups:
@@ -139,7 +149,7 @@ def main():
         x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
         x_strong = x
         with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=use_amp):
-            loss = ssl_loss(student_weak=student(x), student_strong=student(x_strong), 
+            loss, stats = ssl_loss(student_weak=student(x), student_strong=student(x_strong), 
                             teacher_weak=teacher(x), label=y, cfg=cfg['ssl'])
         optimizer.zero_grad(set_to_none=True)
         scaler.scale(loss).backward()
@@ -151,6 +161,8 @@ def main():
         ema_update(teacher, student, m)
 
         loss_sum += loss.detach()
+        for key in counts:
+            counts[key] += stats[key]
         window += 1
         done = it + 1
 
@@ -163,6 +175,24 @@ def main():
             writer.add_scalar("train/lr", lr, done)
             writer.add_scalar("train/sec_per_iter", sec_per_iter, done)
             loss_sum, window, window_start = torch.zeros((), device=device), 0, time.time()
+
+            cpu_counts = {key: value.tolist() for key, value in counts.items()}
+            with open(os.path.join(save_dir, "coverage.jsonl"), "a") as f:
+                f.write(json.dumps({"iter": done, "unlabeled": cpu_counts["unlabeled"], "hard": 
+                                    cpu_counts["hard"], "soft": cpu_counts["soft"],
+                                    "both": cpu_counts["both"]}) + "\n")
+
+                for key in cpu_counts:
+                    if key == "unlabeled":
+                        continue
+                    for i, c in enumerate(CLASSES):
+                        if cpu_counts["unlabeled"][i] == 0:
+                            continue
+                        share = cpu_counts[key][i] / cpu_counts["unlabeled"][i]
+                        writer.add_scalar(f"coverage/{key}/{c}", share, done)
+            
+            counts = {"unlabeled": torch.zeros((NUM_CLASSES), device=device, dtype=torch.long), "hard": torch.zeros((NUM_CLASSES), device=device, dtype=torch.long), 
+                      "soft": torch.zeros((NUM_CLASSES), device=device, dtype=torch.long), "both": torch.zeros((NUM_CLASSES), device=device, dtype=torch.long)}
 
         if done % sched["eval_interval"] == 0 or done == stop_iter:
             s_metrics = evaluate(student, val_loader, device)
