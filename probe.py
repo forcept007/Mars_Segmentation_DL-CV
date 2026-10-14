@@ -56,7 +56,7 @@ class Extractor:
     def __call__(self, x):
         with torch.autocast(self.device.type, dtype=torch.float16, enabled=self.device.type == "cuda"):
             if self.is_vit:
-                tokens = self.model.forward_features(x)["x_norm_patchtokens"]  # (B, N, C)
+                tokens = self.model.forward_features(x)["x_norm_patchtokens"]
                 b, n, c = tokens.shape
                 gh, gw = x.shape[-2] // 14, x.shape[-1] // 14
                 return tokens.transpose(1, 2).reshape(b, c, gh, gw).float()
