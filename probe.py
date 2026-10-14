@@ -32,7 +32,7 @@ def probe_transform(size):
 
 def subset_loader(split, n, size, seed, root, batch, workers):
     ds = S5MarsDataset(split, probe_transform(size), root)
-    g = torch.Generator().manual_seed(seed)  # same seed -> same images for every encoder
+    g = torch.Generator().manual_seed(seed)
     idx = torch.randperm(len(ds), generator=g)[:n].tolist()
     return DataLoader(Subset(ds, idx), batch_size=batch, shuffle=False, num_workers=workers)
 
