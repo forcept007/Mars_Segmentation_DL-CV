@@ -1,0 +1,5 @@
+base: ssl_s5mars.yaml
+schedule:
+  stop_iter: 2000
+  eval_interval: 500
+  save_interval: 500
