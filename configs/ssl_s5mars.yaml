@@ -5,3 +5,4 @@ ssl:
   lambda_u: 2.0
   lambda_s: 1.0
   ema_max: 0.996
+  strong_aug: sigma

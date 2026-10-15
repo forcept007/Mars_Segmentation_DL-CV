@@ -62,6 +62,34 @@ def ssl_loss(student_weak: torch.Tensor, student_strong: torch.Tensor, teacher_w
 
     return (loss, stats)
 
+# ms-22 AugIN-σ. Augment Instance Normalization seeks to exchange either the mean
+# or standard deviation between two images, which generates augmented images for
+# more robust training. AugIN-μ exchanges the mean between images while AugIN-σ 
+# exchanges the standard deviation. Refer to equation (5) in the paper.
+def augin(x: torch.Tensor, mode: str, eps: float = 1e-6):
+    # Set mode for augment instance normalization (sigma in the paper)
+    if mode == 'none':
+        return x
+
+    # Find the mean intensity and σ over all images in the batch, for each channel (8x3 = 24)
+    mean = x.mean(dim=(2, 3), keepdim=True)
+    stddev = x.std(dim=(2, 3), keepdim=True) + eps
+    # Randomly permute the images in the batch
+    perm = torch.randperm(x.shape[0], device=x.device)
+    # Normalize the images in the tensor
+    x_norm = (x - mean) / stddev
+    if mode == 'sigma':
+        # Exhange the stddev and return the augmented images
+        return (stddev[perm] * x_norm) + mean
+    if mode == 'mu':
+        # Exhange the mean and return the augmented images
+        return (stddev * x_norm) + mean[perm]
+    if mode == 'both':
+        # Exhange both the mean and stddev and return the augmented images
+        return (stddev[perm] * x_norm) + mean[perm]
+
+    raise ValueError(f'Unkown AugIN mode: {mode!r}')
+
 def ema_momentum(iteration: int, ema_max: float = 0.996):
     # iteration is how many optimizer steps training has taken so far. 
     # It's the same counter that train.py already uses for the learning rate schedule.
@@ -147,7 +175,7 @@ def main():
 
         x, y, _ = next(batches)
         x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
-        x_strong = x
+        x_strong = augin(x, cfg['ssl']['strong_aug'])
         with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=use_amp):
             loss, stats = ssl_loss(student_weak=student(x), student_strong=student(x_strong), 
                             teacher_weak=teacher(x), label=y, cfg=cfg['ssl'])
