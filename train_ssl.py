@@ -81,6 +81,14 @@ def augin(x: torch.Tensor, mode: str, eps: float = 1e-6):
     if mode == 'sigma':
         # Exhange the stddev and return the augmented images
         return (stddev[perm] * x_norm) + mean
+    if mode == 'mu':
+        # Exhange the mean and return the augmented images
+        return (stddev * x_norm) + mean[perm]
+    if mode == 'both':
+        # Exhange both the mean and stddev and return the augmented images
+        return (stddev[perm] * x_norm) + mean[perm]
+
+    raise ValueError(f'Unkown AugIN mode: {mode!r}')
 
 def ema_momentum(iteration: int, ema_max: float = 0.996):
     # iteration is how many optimizer steps training has taken so far. 
