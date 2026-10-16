@@ -1,4 +1,4 @@
-base: baseline_r50_full.yaml
+base: baseline_r50_full_1xHeadLR.yaml
 ssl:
   t_hard: 0.5
   t_soft: 0.9
