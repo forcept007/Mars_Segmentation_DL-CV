@@ -1,4 +1,4 @@
-base: baseline_r50_full.yaml
+base: baseline_r50_full_1xHeadLR.yaml
 ssl:
   t_hard: 0.5
   t_soft: 0.9
@@ -6,3 +6,11 @@ ssl:
   lambda_s: 1.0
   ema_max: 0.996
   strong_aug: sigma
+  mix: sam_mix
+  sam_root: '~/data/sam_masks'
+  min_pixels: 260
+  mask_sigma: 2
+  object_transform:
+    max_angle: 30.0
+    scale_range: [0.75, 1.25]
+    flip_p: 0.5

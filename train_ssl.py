@@ -13,8 +13,9 @@ import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 
 import train
+from sam_mix import get_mix_loader, mix_batch
 
-from data import NUM_CLASSES, CLASSES
+from data import NUM_CLASSES, CLASSES, DATA_ROOT
 from evaluate import evaluate
 from models import build_model
 
@@ -132,6 +133,25 @@ def main():
     log.info(f"device {device}, amp {use_amp}")
 
     train_loader, val_loader = train.build_loaders(cfg["data"], pin_memory=device.type == "cuda")
+
+    # Load SamMix dataset
+    mix = cfg['ssl']['mix']
+    if mix != 'none':
+        if mix == 'sam_mix':
+            if not cfg['ssl']['sam_root']:
+                raise ValueError('Set sam_root in ssl_s5mars.yaml')
+            sam_root = os.path.expanduser(cfg['ssl']['sam_root'])
+        else:
+            sam_root = None
+
+        if not cfg['data']['root']:
+            root = DATA_ROOT
+        else:
+            root = cfg['data']['root']
+        train_loader = get_mix_loader(batch=cfg['data']['batch_size'], num_workers=cfg['data']['num_workers'],
+                                      sam_root=sam_root, root=root, scale_range=cfg['data']['scale_range'],
+                                      min_pixels=cfg['ssl']['min_pixels'], sigma=cfg['ssl']['mask_sigma'], pin_memory=(device.type == "cuda"))
+
     # Building the student and teacher. Teacher should start as a copy of the student and then is
     # updated with the exponentional moving average (EMA)
     student = build_model(cfg["model"]).to(device)
