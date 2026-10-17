@@ -23,13 +23,19 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--config", required=True)
 parser.add_argument("--set", nargs="*", default=[], metavar="KEY=VALUE")
 
-def ssl_loss(student_weak: torch.Tensor, student_strong: torch.Tensor, teacher_weak: torch.Tensor, label: torch.Tensor, cfg):
+def ssl_loss(student_weak: torch.Tensor, student_strong: torch.Tensor, teacher_weak: torch.Tensor, label: torch.Tensor, cfg,
+             label_strong: torch.Tensor | None = None):
+    # label: ground truth for the weak view (L_sup). label_strong: ground truth aligned with the strong view,
+    # which differs from label after SAM-Mix/CutMix pastes partner pixels; None means the views share geometry.
     # Converting float16 tensors to float32 for loss computation to avoid NaNs
     student_weak = student_weak.float()
     student_strong = student_strong.float()
     teacher_weak = teacher_weak.float()
 
-    unlabeled = label == 255
+    if label_strong is not None:
+        unlabeled = label_strong == 255
+    else:
+        unlabeled = label == 255
     labeled = label != 255
     if labeled.any():
         L_sup = F.cross_entropy(student_weak, label, ignore_index=255)
@@ -141,8 +147,10 @@ def main():
             if not cfg['ssl']['sam_root']:
                 raise ValueError('Set sam_root in ssl_s5mars.yaml')
             sam_root = os.path.expanduser(cfg['ssl']['sam_root'])
+            transform_args = cfg['ssl']['object_transform']
         else:
             sam_root = None
+            transform_args = dict(max_angle=0.0, scale_range=(1.0,1.0), flip_p=0.0)
 
         if not cfg['data']['root']:
             root = DATA_ROOT
@@ -193,12 +201,22 @@ def main():
         for group in optimizer.param_groups:
             group["lr"] = lr * group["lr_mult"]
 
-        x, y, _ = next(batches)
-        x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
+        batch = next(batches)
+        x, y = batch[0].to(device), batch[1].to(device)
         x_strong = augin(x, cfg['ssl']['strong_aug'])
+
+        with torch.no_grad(), torch.autocast(device_type=device.type, dtype=torch.float16, enabled=use_amp):
+            teacher_logits = teacher(x)
+
+        y_strong = None
+        if mix != "none":
+            sam = batch[2].to(device)
+            x_strong, teacher_logits, y_strong = mix_batch(x_strong, teacher_logits, y, sam, **transform_args)
+
         with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=use_amp):
-            loss, stats = ssl_loss(student_weak=student(x), student_strong=student(x_strong), 
-                            teacher_weak=teacher(x), label=y, cfg=cfg['ssl'])
+            loss, stats = ssl_loss(student_weak=student(x), student_strong=student(x_strong), teacher_weak=teacher_logits, 
+                                   label=y, cfg=cfg['ssl'], label_strong=y_strong)
+
         optimizer.zero_grad(set_to_none=True)
         scaler.scale(loss).backward()
         scaler.step(optimizer)
