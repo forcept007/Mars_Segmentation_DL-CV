@@ -10,7 +10,8 @@ from pycocotools import mask as mask_utils
 from torchvision import tv_tensors
 from torchvision.transforms.functional import gaussian_blur
 from torchvision.io import decode_image, ImageReadMode
-from data import DATA_ROOT, S5MarsDataset, load_label
+from torch.utils.data import DataLoader
+from data import DATA_ROOT, S5MarsDataset, load_label, train_transform
 
 def filter_masks(masks: list[dict], min_area: float = 0.001, max_area: float = 0.10, min_iou: float = 0.88):
     # Paper Sec. IV-B: keep SAM masks whose size is in a range and whose confidence is above a threshold.
@@ -148,12 +149,16 @@ class SamMixDataset(S5MarsDataset):
     def __getitem__(self, idx):
         img_path = os.path.join(self.root, "images", self.ids[idx] + ".jpg")
         mask_path = os.path.join(self.root, "labels", self.ids[idx] + ".png")
-        sam_path = os.path.join(self.sam_root, self.ids[idx] + ".json")
 
         image = tv_tensors.Image(decode_image(img_path, mode=ImageReadMode.RGB)) # (3,H,W) uint8
         label = tv_tensors.Mask(load_label(mask_path)) # (H,W) 0–8, 255
 
-        id_map = load_sam_id_map(sam_path)
+        if self.sam_root is None:
+            id_map = None
+        else:
+            sam_path = os.path.join(self.sam_root, self.ids[idx] + ".json")
+            id_map = load_sam_id_map(sam_path)
+
         if id_map is None:
             id_map = torch.zeros((image.shape[1], image.shape[2]), dtype=torch.int16)
         sam = tv_tensors.Mask(id_map)
@@ -172,3 +177,10 @@ class SamMixDataset(S5MarsDataset):
             sam = random_box(sam.shape[0], sam.shape[1])
 
         return image, label, sam, self.ids[idx]
+
+def get_mix_loader(batch: int, num_workers: int, sam_root: str, root=DATA_ROOT, scale_range=(0.5, 2.0),
+                   min_pixels: int = 260, sigma: float = 2, pin_memory: bool = False):
+    # Train loader for SAM-Mix (sam_root = folder of precomputed masks) or CutMix (sam_root = None: every mask is a
+    # random box). Same weak transform and loader settings as data.get_dataloaders; items are (image, label, mask, id).
+    dataset = SamMixDataset("train", sam_root, train_transform(scale_range), root, min_pixels=min_pixels, sigma=sigma)
+    return DataLoader(dataset, batch_size=batch, num_workers=num_workers, shuffle=True, drop_last=True, pin_memory=pin_memory, persistent_workers=(num_workers > 0))
