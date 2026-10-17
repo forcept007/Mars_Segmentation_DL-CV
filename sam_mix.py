@@ -27,7 +27,7 @@ def filter_masks(masks: list[dict], min_area: float = 0.001, max_area: float = 0
     return kept
 
 def load_sam_id_map(json_path: str, min_area: float = 0.001, max_area: float = 0.10, min_iou: float = 0.88):
-    # Before Paper Sec. IV-B (randomly select one qualifying SAM mask for this image.)
+    # Before Paper Sec. IV-B: (randomly select one qualifying SAM mask for this image.)
     # This function returns an id_map of all masks in the original image. Then when the map is cropped
     # the same as the training image, all masks remain within the crop. This avoids picking one random
     # mask before the crop and then facing the possibility of the mask disappearing after the crop.
@@ -48,7 +48,7 @@ def load_sam_id_map(json_path: str, min_area: float = 0.001, max_area: float = 0
     return id_map
 
 def pick_sam_mask(id_map: torch.Tensor, min_pixels: int):
-    # Paper Sec. IV-B (randomly select one qualifying SAM mask for this image.)
+    # Paper Sec. IV-B: (randomly select one qualifying SAM mask for this image.)
     # After the crop: randomly choose one mask id that still has at least min_pixels pixels.
     # Returns a 0/1 uint8 mask with the same shape as id_map, all zeros if no id qualifies (caller uses CutMix).
     ids, counts = id_map.unique(sorted=True, return_counts=True)
@@ -106,6 +106,23 @@ def mask_transform(mask: torch.Tensor, image: torch.Tensor, raw: torch.Tensor, l
     raw = F.grid_sample(raw, grid, mode='bilinear', align_corners=False)
     label = F.grid_sample(label[:,None].float(), grid, mode='nearest', align_corners=False)[:,0]
     return mask, image, raw, label
+
+def mix_batch(x_strong: torch.Tensor, logits_t: torch.Tensor, label: torch.Tensor, mask: torch.Tensor, **transform_args):
+    # Paper Sec. IV-B: paste one transformed object from a partner sample into each sample, same position.
+    # x_strong: (B, 3, H, W) strong view (after AugIN). logits_t: (B, C, H, W) teacher logits on the weak view.
+    # label: (B, H, W) ground truth, 255 = unlabeled. mask: (B, H, W) 0/1 masks from SamMixDataset.
+    # transform_args: passed on to mask_transform (max_angle, scale_range, flip_p, or fixed angle/flip/scale in tests).
+    # Returns the mixed strong view, the mixed teacher logits and the mixed label (for the unsupervised loss).
+    B = x_strong.shape[0]
+    partner = torch.roll(torch.arange(B, device=x_strong.device), 1)   # sample i receives sample i-1's object
+
+    mask_p, x_p, logits_p, label_p = mask_transform(mask[partner], x_strong[partner], logits_t[partner].float(), label[partner], **transform_args)
+
+    paste = torch.where(mask_p >= 0.5, 1, 0)
+    x_mix = torch.where(paste[:, None] == 1, x_p, x_strong)
+    logits_mix = torch.where(paste[:, None] == 1, logits_p, logits_t.float())
+    label_mix = torch.where(paste == 1, label_p, label).long()
+    return x_mix, logits_mix, label_mix
 
 class SamMixDataset(S5MarsDataset):
     def __init__(self, split, sam_root, transform=None, root=DATA_ROOT, limit=None, min_pixels=260, sigma=2):
