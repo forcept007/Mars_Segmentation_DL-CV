@@ -2,7 +2,9 @@ import json
 import random
 import os
 import torch
+import torch.nn.functional as F
 import math
+import numpy as np
 
 from pycocotools import mask as mask_utils
 from torchvision import tv_tensors
@@ -59,6 +61,51 @@ def pick_sam_mask(id_map: torch.Tensor, min_pixels: int):
     
     return torch.where(id_map == k, 1, 0).to(torch.uint8)
 
+def mask_transform(mask: torch.Tensor, image: torch.Tensor, raw: torch.Tensor, label: torch.Tensor, 
+                   max_angle: float = 30.0, scale_range: tuple[float, float] = (0.75, 1.25), flip_p: float = 0.5,
+                   angle: torch.Tensor = None, flip: torch.Tensor = None,
+                   scale: torch.Tensor = None):
+    # Paper Sec. IV-B: rotate, flip and rescale the masked object around its own centroid (pasted at the same
+    # position), applying one random transform per sample to the mask, image, teacher logits and label alike.
+    # mask, label: (B, H, W). image: (B, 3, H, W). raw (teacher logits): (B, C, H, W).
+    # angle (degrees), flip (bool), scale: optional (B,) tensors; drawn at random when None (tests pass them).
+    B, H, W = mask.shape
+    dev = mask.device
+
+    if angle is None:
+        angle = (torch.rand(B, device=dev) * 2 - 1) * max_angle
+    if flip is None:
+        flip = torch.rand(B, device=dev) <= flip_p
+    if scale is None:
+        scale = scale_range[0] + torch.rand(B, device=dev) * (scale_range[1] - scale_range[0])
+
+    # Object centroid in normalized coordinates (-1 = left/top edge, +1 = right/bottom edge)
+    xs = torch.linspace(-1 + 1 / W, 1 - 1 / W, W, device=dev)
+    ys = torch.linspace(-1 + 1 / H, 1 - 1 / H, H, device=dev)
+    m = mask.float()
+    area = m.sum(dim=(1, 2)).clamp(min=1)
+    cx = (m * xs[None, None, :]).sum(dim=(1, 2)) / area
+    cy = (m * ys[None, :, None]).sum(dim=(1, 2)) / area
+
+    # theta = [A | c - A c], A = S^-1 R(-a), S = diag(sx, scale), sx negative where flipped:
+    # A = [[ cos(a)/sx,     sin(a)/sx    ],
+    #      [-sin(a)/scale,  cos(a)/scale ]]
+    a = torch.deg2rad(angle)
+    sx = torch.where(flip, -scale, scale)
+    row0 = torch.stack([torch.cos(a)/sx, torch.sin(a)/sx], dim=1)
+    row1 = torch.stack([-torch.sin(a)/scale, torch.cos(a)/scale], dim=1)
+    A = torch.stack([row0, row1], dim=1)
+    c = torch.stack([cx, cy], dim=-1)
+    t = c - (A @ c[..., None])[..., 0]
+    theta = torch.cat([A, t[..., None]], dim=2)
+
+    # 4. One grid, four tensors
+    grid = F.affine_grid(theta, (B, 1, H, W), align_corners=False)
+    mask = F.grid_sample(m[:,None], grid, mode='nearest', align_corners=False)[:,0]
+    image = F.grid_sample(image, grid, mode='bilinear', align_corners=False)
+    raw = F.grid_sample(raw, grid, mode='bilinear', align_corners=False)
+    label = F.grid_sample(label[:,None].float(), grid, mode='nearest', align_corners=False)[:,0]
+    return mask, image, raw, label
 
 class SamMixDataset(S5MarsDataset):
     def __init__(self, split, sam_root, transform=None, root=DATA_ROOT, limit=None, min_pixels=260, sigma=2):
