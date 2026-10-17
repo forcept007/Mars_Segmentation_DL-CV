@@ -124,6 +124,19 @@ def mix_batch(x_strong: torch.Tensor, logits_t: torch.Tensor, label: torch.Tenso
     label_mix = torch.where(paste == 1, label_p, label).long()
     return x_mix, logits_mix, label_mix
 
+def random_box(h: int, w: int, area_range=(0.02, 0.4), ratio_range=(0.3, 1 / 0.3)):
+    # Paper Sec. IV-B: "If there is no qualified mask, a random rectangular mask will be directly generated" (CutMix).
+    # Size and shape ranges follow UniMatch's obtain_cutmix_box. Returns an (h, w) uint8 mask, 1 inside the box.
+    area = random.uniform(area_range[0], area_range[1]) * (h * w)
+    ratio = random.uniform(ratio_range[0], ratio_range[1])
+    box_h = min(round(math.sqrt(area*ratio)), h)
+    box_w = min(round(box_h / ratio), w)
+    top = random.randint(0, h - box_h)
+    left = random.randint(0, w - box_w)
+    mask = torch.zeros(h, w, dtype=torch.uint8)
+    mask[top:top + box_h, left:left + box_w] = 1
+    return mask
+
 class SamMixDataset(S5MarsDataset):
     def __init__(self, split, sam_root, transform=None, root=DATA_ROOT, limit=None, min_pixels=260, sigma=2):
         super().__init__(split, transform, root, limit)
@@ -153,5 +166,9 @@ class SamMixDataset(S5MarsDataset):
         kernel = 2 * math.ceil(3 * self.sigma) + 1
         sam = gaussian_blur(sam[None].float(), kernel, self.sigma)[0]
         sam = torch.where(sam >= 0.5, 1, 0).to(torch.uint8)
+
+        # Check if the mask is empty and if so, fall back to CutMix
+        if sam.sum() == 0:
+            sam = random_box(sam.shape[0], sam.shape[1])
 
         return image, label, sam, self.ids[idx]
