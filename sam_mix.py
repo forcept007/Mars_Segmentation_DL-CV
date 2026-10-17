@@ -2,9 +2,11 @@ import json
 import random
 import os
 import torch
+import math
 
 from pycocotools import mask as mask_utils
 from torchvision import tv_tensors
+from torchvision.transforms.functional import gaussian_blur
 from torchvision.io import decode_image, ImageReadMode
 from data import DATA_ROOT, S5MarsDataset, load_label
 
@@ -59,11 +61,12 @@ def pick_sam_mask(id_map: torch.Tensor, min_pixels: int):
 
 
 class SamMixDataset(S5MarsDataset):
-    def __init__(self, split, sam_root, transform=None, root=DATA_ROOT, limit=None, min_pixels=260):
+    def __init__(self, split, sam_root, transform=None, root=DATA_ROOT, limit=None, min_pixels=260, sigma=2):
         super().__init__(split, transform, root, limit)
 
         self.sam_root = sam_root
         self.min_pixels = min_pixels
+        self.sigma = sigma
 
     def __getitem__(self, idx):
         img_path = os.path.join(self.root, "images", self.ids[idx] + ".jpg")
@@ -81,5 +84,10 @@ class SamMixDataset(S5MarsDataset):
         if self.transform:
             image, label, sam = self.transform(image, label, sam)
         sam = pick_sam_mask(sam, self.min_pixels)
+
+        # Apply a Gaussian filter on the mask
+        kernel = 2 * math.ceil(3 * self.sigma) + 1
+        sam = gaussian_blur(sam[None].float(), kernel, self.sigma)[0]
+        sam = torch.where(sam >= 0.5, 1, 0).to(torch.uint8)
 
         return image, label, sam, self.ids[idx]
