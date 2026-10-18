@@ -47,15 +47,15 @@ def ssl_loss(student_weak: torch.Tensor, student_strong: torch.Tensor, teacher_w
 
     hard_mask = unlabeled & (conf > cfg["t_hard"])
     soft_mask = unlabeled & (conf < cfg["t_soft"])
-    num_unlabeled = unlabeled.sum().clamp(min=1)
+    num_pixels = unlabeled.numel()
 
     log_p = F.log_softmax(student_strong, dim=1)
 
     hard = F.nll_loss(log_p, pseudo, reduction='none')
-    hard = (hard * hard_mask).sum() / num_unlabeled
+    hard = (hard * hard_mask).sum() / num_pixels
 
     soft = -(prob * log_p).sum(dim=1)
-    soft = (soft * soft_mask).sum() / num_unlabeled
+    soft = (soft * soft_mask).sum() / num_pixels
 
     # Compute the loss
     loss = L_sup + cfg['lambda_u'] * (hard + cfg['lambda_s'] * soft)
