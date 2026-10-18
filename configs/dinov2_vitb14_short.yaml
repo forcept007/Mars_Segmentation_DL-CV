@@ -1,0 +1,8 @@
+base: baseline_r50_short_1xHeadLR.yaml
+model:
+  encoder: dinov2_vitb14
+optim:
+  name: adamw
+  lr: 5.0e-6
+  weight_decay: 0.01
+  head_lr_mult: 40

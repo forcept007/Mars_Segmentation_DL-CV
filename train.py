@@ -91,8 +91,13 @@ def main():
     train_loader, val_loader = build_loaders(cfg["data"], pin_memory=device.type == "cuda")
     model = build_model(cfg["model"]).to(device)
     optim_cfg, sched = cfg["optim"], cfg["schedule"]
-    optimizer = torch.optim.SGD(model.param_groups(optim_cfg["head_lr_mult"]), lr=optim_cfg["lr"],
-                                momentum=optim_cfg["momentum"], weight_decay=optim_cfg["weight_decay"])
+    groups = model.param_groups(optim_cfg["head_lr_mult"])
+    if optim_cfg.get("name", "sgd") == "adamw":
+        optimizer = torch.optim.AdamW(groups, lr=optim_cfg["lr"], betas=(0.9, 0.999),
+                                      weight_decay=optim_cfg["weight_decay"])
+    else:
+        optimizer = torch.optim.SGD(groups, lr=optim_cfg["lr"], momentum=optim_cfg["momentum"],
+                                    weight_decay=optim_cfg["weight_decay"])
     scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
     criterion = nn.CrossEntropyLoss(ignore_index=IGNORE_INDEX)
     writer = SummaryWriter(os.path.join(save_dir, "tb"))
