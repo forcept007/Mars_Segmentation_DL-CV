@@ -36,6 +36,8 @@ def ssl_loss(student_weak: torch.Tensor, student_strong: torch.Tensor, teacher_w
         unlabeled = label_strong == 255
     else:
         unlabeled = label == 255
+    if cfg.get("unsup_pixels", "unlabeled") == "all":
+        unlabeled = torch.ones_like(unlabeled)
     labeled = label != 255
     if labeled.any():
         L_sup = F.cross_entropy(student_weak, label, ignore_index=255)
