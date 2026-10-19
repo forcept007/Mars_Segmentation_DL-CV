@@ -4,6 +4,7 @@ ssl:
   t_soft: 0.9
   lambda_u: 2.0
   lambda_s: 1.0
+  unsup_pixels: all_gt
   ema_max: 0.996
   strong_aug: sigma
   mix: sam_mix
