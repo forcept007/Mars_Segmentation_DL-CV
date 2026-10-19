@@ -32,11 +32,17 @@ def ssl_loss(student_weak: torch.Tensor, student_strong: torch.Tensor, teacher_w
     student_strong = student_strong.float()
     teacher_weak = teacher_weak.float()
 
-    if label_strong is not None:
-        unlabeled = label_strong == 255
-    else:
-        unlabeled = label == 255
-    if cfg.get("unsup_pixels", "unlabeled") == "all":
+    if label_strong is None:
+        label_strong = label
+    unlabeled = label_strong == 255
+    # unsup_pixels: "unlabeled" = teacher targets on annotation gaps only; "all" = teacher targets on every pixel;
+    # "all_gt" = every pixel, with ground truth as the hard target wherever the strong view is labeled, so the
+    # teacher never overrides a known label (it cannot learn a class the teacher does not already predict otherwise)
+    unsup_pixels = cfg.get("unsup_pixels", "unlabeled")
+    if unsup_pixels not in ("unlabeled", "all", "all_gt"):
+        raise ValueError(f"Unknown unsup_pixels: {unsup_pixels!r}")
+    gt_strong = ~unlabeled if unsup_pixels == "all_gt" else torch.zeros_like(unlabeled)
+    if unsup_pixels == "all":
         unlabeled = torch.ones_like(unlabeled)
     labeled = label != 255
     if labeled.any():
@@ -53,8 +59,9 @@ def ssl_loss(student_weak: torch.Tensor, student_strong: torch.Tensor, teacher_w
 
     log_p = F.log_softmax(student_strong, dim=1)
 
-    hard = F.nll_loss(log_p, pseudo, reduction='none')
-    hard = (hard * hard_mask).sum() / num_pixels
+    target = torch.where(gt_strong, label_strong, pseudo)
+    hard = F.nll_loss(log_p, target, reduction='none')
+    hard = (hard * (hard_mask | gt_strong)).sum() / num_pixels
 
     soft = -(prob * log_p).sum(dim=1)
     soft = (soft * soft_mask).sum() / num_pixels
