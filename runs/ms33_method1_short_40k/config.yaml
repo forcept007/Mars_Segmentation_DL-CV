@@ -1,0 +1,54 @@
+seed: 0
+amp: true
+model:
+  encoder: resnet50
+  output_stride: 16
+  pretrained: true
+data:
+  root: null
+  batch_size: 8
+  eval_batch_size: 4
+  num_workers: 4
+  scale_range:
+  - 0.5
+  - 2.0
+  overfit: 0
+optim:
+  lr: 0.01
+  head_lr_mult: 1.0
+  momentum: 0.9
+  weight_decay: 0.0001
+  poly_power: 0.9
+schedule:
+  max_iters: 40000
+  stop_iter: 40000
+  eval_interval: 2000
+  save_interval: 2000
+  log_interval: 50
+ssl:
+  t_hard: 0.5
+  t_soft: 0.9
+  lambda_u: 2.0
+  lambda_s: 1.0
+  unsup_pixels: all_gt
+  ema_max: 0.996
+  strong_aug: sigma
+  mix: sam_mix
+  sam_root: ./sam_masks
+  min_pixels: 260
+  mask_sigma: 2
+  object_transform:
+    max_angle: 30.0
+    scale_range:
+    - 0.75
+    - 1.25
+    flip_p: 0.5
+method1:
+  enabled: true
+  momentum: 0.99
+  alpha: 1.0
+  initial_threshold: 0.5
+  min_threshold: 0.4
+  max_threshold: 0.7
+  warmup_iters: 1000
+save_dir: runs/ms33_method1_short_40k

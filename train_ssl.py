@@ -18,13 +18,14 @@ from sam_mix import get_mix_loader, mix_batch
 from data import NUM_CLASSES, CLASSES, DATA_ROOT
 from evaluate import evaluate
 from models import build_model
+from class_adaptive_threshold import ClassAdaptiveThreshold
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--config", required=True)
 parser.add_argument("--set", nargs="*", default=[], metavar="KEY=VALUE")
 
 def ssl_loss(student_weak: torch.Tensor, student_strong: torch.Tensor, teacher_weak: torch.Tensor, label: torch.Tensor, cfg,
-             label_strong: torch.Tensor | None = None):
+             label_strong: torch.Tensor | None = None, class_thresholds=None,):
     # label: ground truth for the weak view (L_sup). label_strong: ground truth aligned with the strong view,
     # which differs from label after SAM-Mix/CutMix pastes partner pixels; None means the views share geometry.
     # Converting float16 tensors to float32 for loss computation to avoid NaNs
@@ -53,7 +54,12 @@ def ssl_loss(student_weak: torch.Tensor, student_strong: torch.Tensor, teacher_w
     prob = teacher_weak.softmax(dim=1)
     conf, pseudo = prob.max(dim=1)
 
-    hard_mask = unlabeled & (conf > cfg["t_hard"])
+    if class_thresholds is None:
+        hard_threshold = cfg["t_hard"]
+    else:
+        hard_threshold = class_thresholds[pseudo]
+
+    hard_mask = unlabeled & (conf > hard_threshold)
     soft_mask = unlabeled & (conf < cfg["t_soft"])
     num_pixels = unlabeled.numel()
 
@@ -176,6 +182,19 @@ def main():
     teacher.requires_grad_(False)
     teacher.eval()
 
+    # Method 1: Class Adaptive Thresholding for per-class confidence thresholds
+    method1_cfg = cfg.get("method1", {})
+    method1_enabled = method1_cfg.get("enabled", False)
+    threshold_manager = ClassAdaptiveThreshold(
+            num_classes=NUM_CLASSES,
+            device=device,
+            momentum=method1_cfg["momentum"],
+            alpha=method1_cfg["alpha"],
+            initial_threshold=method1_cfg["initial_threshold"],
+            min_threshold=method1_cfg["min_threshold"],
+            max_threshold=method1_cfg["max_threshold"],
+        ) if method1_enabled else None
+
     optim_cfg, sched = cfg["optim"], cfg["schedule"]
     optimizer = torch.optim.SGD(student.param_groups(optim_cfg["head_lr_mult"]), lr=optim_cfg["lr"],
                                 momentum=optim_cfg["momentum"], weight_decay=optim_cfg["weight_decay"])
@@ -191,6 +210,13 @@ def main():
         student.load_state_dict(ckpt["student"])
         teacher.load_state_dict(ckpt["teacher"])
         optimizer.load_state_dict(ckpt["optimizer"])
+        if threshold_manager is not None:
+            if "method1_thresholds" not in ckpt:
+                raise RuntimeError(
+                    "Existing checkpoint has no Method 1 threshold state. "
+                    "Use a fresh save_dir for Method 1."
+                )
+            threshold_manager.load_state_dict(ckpt["method1_thresholds"])
         if ckpt["scaler"]:
             scaler.load_state_dict(ckpt["scaler"])
         start_iter, best_t_miou, best_t_iter = ckpt["iter"], ckpt["best_t_miou"], ckpt["best_t_iter"]
@@ -217,6 +243,19 @@ def main():
         with torch.no_grad(), torch.autocast(device_type=device.type, dtype=torch.float16, enabled=use_amp):
             teacher_logits = teacher(x)
 
+        class_thresholds = None
+        if threshold_manager is not None:
+            with torch.no_grad():
+                teacher_prob = teacher_logits.float().softmax(dim=1)
+                teacher_conf, teacher_pred = teacher_prob.max(dim=1)
+                threshold_manager.update(
+                    confidence=teacher_conf,
+                    prediction=teacher_pred,
+                    valid_mask=(y == 255),
+                )
+            if it >= method1_cfg["warmup_iters"]:
+                class_thresholds = threshold_manager.thresholds.clone()
+
         y_strong = None
         if mix != "none":
             sam = batch[2].to(device)
@@ -224,7 +263,7 @@ def main():
 
         with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=use_amp):
             loss, stats = ssl_loss(student_weak=student(x), student_strong=student(x_strong), teacher_weak=teacher_logits, 
-                                   label=y, cfg=cfg['ssl'], label_strong=y_strong)
+                                   label=y, cfg=cfg['ssl'], label_strong=y_strong, class_thresholds=class_thresholds)
 
         optimizer.zero_grad(set_to_none=True)
         scaler.scale(loss).backward()
@@ -268,6 +307,13 @@ def main():
             
             counts = {"unlabeled": torch.zeros((NUM_CLASSES), device=device, dtype=torch.long), "hard": torch.zeros((NUM_CLASSES), device=device, dtype=torch.long), 
                       "soft": torch.zeros((NUM_CLASSES), device=device, dtype=torch.long), "both": torch.zeros((NUM_CLASSES), device=device, dtype=torch.long)}
+            if threshold_manager is not None:
+                thresholds = threshold_manager.thresholds.detach().cpu().tolist()
+                active = it >= method1_cfg["warmup_iters"]
+                for class_name, tau in zip(CLASSES, thresholds):
+                    writer.add_scalar(f"method1/threshold/{class_name}", tau, done,)
+                with open(os.path.join(save_dir, "thresholds.jsonl"), "a") as f:
+                    f.write(json.dumps({"iter": done, "active": active, "thresholds": dict(zip(CLASSES, thresholds)),}) + "\n")
 
         if done % sched["eval_interval"] == 0 or done == stop_iter:
             s_metrics = evaluate(student, val_loader, device)
@@ -304,9 +350,12 @@ def main():
             window_start = time.time()
 
         if done % sched["save_interval"] == 0 or done % sched["eval_interval"] == 0 or done == stop_iter:
-            torch.save({"student": student.state_dict(), "teacher": teacher.state_dict(), "optimizer": optimizer.state_dict(), "scaler": scaler.state_dict(),
+            checkpoint = {"student": student.state_dict(), "teacher": teacher.state_dict(), "optimizer": optimizer.state_dict(), "scaler": scaler.state_dict(),
                         "model_cfg": cfg["model"], "iter": done, "best_s_miou": best_s_miou, "best_s_iter": best_s_iter, 
-                        "best_t_miou": best_t_miou, "best_t_iter": best_t_iter}, last_path)
+                        "best_t_miou": best_t_miou, "best_t_iter": best_t_iter}
+            if threshold_manager is not None:
+                checkpoint["method1_thresholds"] = threshold_manager.state_dict()
+            torch.save(checkpoint, last_path)
             window_start = time.time()
 
     writer.close()

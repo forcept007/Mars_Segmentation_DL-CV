@@ -1,0 +1,12 @@
+base: ssl_s5mars_method1.yaml
+
+ssl:
+  sam_root: ./sam_masks
+
+schedule:
+  max_iters: 40000
+  stop_iter: 40000
+  eval_interval: 2000
+  save_interval: 2000
+
+save_dir: runs/ms33_method1_short_40k

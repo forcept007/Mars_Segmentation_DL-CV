@@ -1,0 +1,10 @@
+base: ssl_s5mars.yaml
+
+method1:
+  enabled: true
+  momentum: 0.99
+  alpha: 1.0
+  initial_threshold: 0.5
+  min_threshold: 0.4
+  max_threshold: 0.7
+  warmup_iters: 1000
