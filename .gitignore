@@ -222,3 +222,10 @@ __marimo__/
 .streamlit/secrets.toml
 
 pretrained/
+
+# Local copies of data and cloud results
+S5Mars_data.zip
+*.zip
+results_from_ec2/
+*.pem
+*.pth

@@ -4,5 +4,14 @@ ssl:
   t_soft: 0.9
   lambda_u: 2.0
   lambda_s: 1.0
+  unsup_pixels: all_gt
   ema_max: 0.996
   strong_aug: sigma
+  mix: sam_mix
+  sam_root: '~/data/sam_masks'
+  min_pixels: 260
+  mask_sigma: 2
+  object_transform:
+    max_angle: 30.0
+    scale_range: [0.75, 1.25]
+    flip_p: 0.5

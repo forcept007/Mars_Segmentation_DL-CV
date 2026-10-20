@@ -1,0 +1,64 @@
+/opt/pytorch/lib/python3.13/site-packages/torch/cuda/__init__.py:68: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+Using cache found in /home/ubuntu/.cache/torch/hub/facebookresearch_dinov2_main
+/home/ubuntu/.cache/torch/hub/facebookresearch_dinov2_main/dinov2/layers/swiglu_ffn.py:51: UserWarning: xFormers is not available (SwiGLU)
+  warnings.warn("xFormers is not available (SwiGLU)")
+/home/ubuntu/.cache/torch/hub/facebookresearch_dinov2_main/dinov2/layers/attention.py:33: UserWarning: xFormers is not available (Attention)
+  warnings.warn("xFormers is not available (Attention)")
+/home/ubuntu/.cache/torch/hub/facebookresearch_dinov2_main/dinov2/layers/block.py:40: UserWarning: xFormers is not available (Block)
+  warnings.warn("xFormers is not available (Block)")
+device cuda, input 518x518, 500 train / 200 val images
+
+=== dinov2_vits14 ===
+Using cache found in /home/ubuntu/.cache/torch/hub/facebookresearch_dinov2_main
+  features: train (500, 384, 37, 37), val (200, 384, 37, 37)  (13s)
+    epoch   1/30  train loss 1.5304
+    epoch  10/30  train loss 0.4110
+    epoch  20/30  train loss 0.3439
+    epoch  30/30  train loss 0.3354
+    binary probe pixels: train 237731 (rock 21798), val 93543 (rock 10973)
+
+=== dinov2_vitb14 ===
+  features: train (500, 768, 37, 37), val (200, 768, 37, 37)  (13s)
+    epoch   1/30  train loss 1.2286
+    epoch  10/30  train loss 0.3532
+    epoch  20/30  train loss 0.2962
+    epoch  30/30  train loss 0.2875
+    binary probe pixels: train 237731 (rock 21798), val 93543 (rock 10973)
+
+=== resnet50 ===
+  features: train (500, 2048, 33, 33), val (200, 2048, 33, 33)  (13s)
+    epoch   1/30  train loss 1.3694
+    epoch  10/30  train loss 0.5864
+    epoch  20/30  train loss 0.4971
+    epoch  30/30  train loss 0.4714
+    binary probe pixels: train 237731 (rock 21798), val 93543 (rock 10973)
+
+=== resnet50_torchvision ===
+  features: train (500, 2048, 33, 33), val (200, 2048, 33, 33)  (12s)
+    epoch   1/30  train loss 1.3830
+    epoch  10/30  train loss 0.5082
+    epoch  20/30  train loss 0.4220
+    epoch  30/30  train loss 0.4022
+    binary probe pixels: train 237731 (rock 21798), val 93543 (rock 10973)
+
+============================================================================================
+encoder               grid   dim    mIoU  rock IoU  bedrock IoU  rock->bed %  AUC r-vs-b
+dinov2_vits14        37x37   384   53.72     12.59        86.40        83.12      0.8585
+dinov2_vitb14        37x37   768   57.02     10.32        86.66        86.38      0.8601
+resnet50             33x33  2048   48.57     13.02        77.84        76.48      0.7710
+resnet50_torchvision   33x33  2048   49.67     12.26        79.38        78.90      0.7667
+
+per-class IoU
+class          dinov2_vits14     dinov2_vitb14          resnet50resnet50_torchvision
+sky                    84.56             86.86             81.88             83.97
+ridge                  81.82             82.95             72.53             75.72
+soil                   64.35             65.57             50.97             56.24
+sand                   59.01             61.94             43.91             49.01
+bedrock                86.40             86.66             77.84             79.38
+rock                   12.59             10.32             13.02             12.26
+rover                  75.65             79.34             58.86             61.75
+trace                   2.52             18.50              0.54              2.10
+hole                   16.61             21.08             37.57             26.60
+
+saved results/probe_s1/probe_results.json

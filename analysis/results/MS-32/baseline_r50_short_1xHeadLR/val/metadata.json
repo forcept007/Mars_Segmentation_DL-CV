@@ -1,0 +1,10 @@
+{
+  "run": "baseline_r50_short_1xHeadLR",
+  "split": "val",
+  "checkpoint": "/Users/tommyli/Programming/CMU/2026 Fall/18794/Project/Mars_Segmentation_DL-CV/runs/baseline_r50_short_1xHeadLR/best.pth",
+  "model": "supervised proxy (MS-20)",
+  "hard_threshold": 0.5,
+  "soft_threshold": 0.9,
+  "protocol": "1024 center crop, ImageNet normalization",
+  "note": "Precision uses labeled pixels only; unlabeled accuracy is unknown."
+}

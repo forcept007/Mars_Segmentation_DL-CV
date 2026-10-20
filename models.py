@@ -75,8 +75,14 @@ def build_encoder(name, output_stride, pretrained, weights_path, hub_dir=None, d
 def build_model(cfg=None):
     cfg = {**MODEL_DEFAULTS, **(cfg or {})}
     encoder, low_channels, high_channels = build_encoder(cfg["encoder"], cfg["output_stride"],
-                                                         cfg["pretrained"], cfg["weights_path"])
-    dilations = {16: (6, 12, 18), 8: (12, 24, 36)}[cfg["output_stride"]]
+                                                         cfg["pretrained"], cfg["weights_path"],
+                                                         cfg["hub_dir"], cfg["dinov2_weights"])
+    if cfg["dilations"]:
+        dilations = tuple(cfg["dilations"])
+    elif cfg["encoder"].startswith("dinov2"):
+        dilations = (3, 6, 9)
+    else:
+        dilations = {16: (6, 12, 18), 8: (12, 24, 36)}[cfg["output_stride"]]
     return DeepLabV3Plus(encoder, low_channels, high_channels, cfg["num_classes"], dilations)
 
 def conv_bn_relu(in_ch, out_ch, kernel_size=1, dilation=1):
