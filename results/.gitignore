@@ -1,0 +1,2 @@
+# keep training and eval logs that belong to the results (root .gitignore drops *.log)
+!*.log
