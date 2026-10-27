@@ -1,0 +1,5 @@
+base: baseline_r50_short_1xHeadLR.yaml
+data:
+  # S5Mars train RGB stats (4,997 unique train images); paper Table II std is (0.134, 0.121, 0.099)
+  mean: [0.6193, 0.5137, 0.3601]
+  std: [0.1374, 0.1248, 0.1033]

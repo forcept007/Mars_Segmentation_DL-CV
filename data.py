@@ -13,6 +13,11 @@ DATA_ROOT = os.environ.get("S5MARS_ROOT", os.path.join(os.path.dirname(os.path.a
 CLASSES = ["sky", "ridge", "soil", "sand", "bedrock", "rock", "rover", "trace", "hole"]
 NUM_CLASSES = len(CLASSES)
 IGNORE_INDEX = 255
+IMAGENET_MEAN, IMAGENET_STD = (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
+
+def norm_stats(data_cfg):
+    # Normalization from a data config for ablation studies, ImageNet stats if it has none
+    return {"mean": tuple(data_cfg.get("mean", IMAGENET_MEAN)), "std": tuple(data_cfg.get("std", IMAGENET_STD))}
 
 def load_label(mask_path):
     raw = torch.from_numpy(np.array(Image.open(mask_path))).long()
@@ -31,20 +36,20 @@ class RandomScale(v2.Transform):
     def transform(self, inpt, params):
         return self._call_kernel(v2.functional.resize, inpt, params["size"])
 
-def train_transform(scale_range=(0.5, 2.0), crop=512):
+def train_transform(scale_range=(0.5, 2.0), crop=512, mean=IMAGENET_MEAN, std=IMAGENET_STD):
     return v2.Compose([
         RandomScale(scale_range),
         v2.RandomCrop(crop, pad_if_needed=True, fill={tv_tensors.Image: 0, tv_tensors.Mask: IGNORE_INDEX}),
         v2.RandomHorizontalFlip(),
         v2.ToDtype(torch.float32, scale=True),
-        v2.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)), # ImageNet stats
+        v2.Normalize(mean, std),
     ])
 
-def eval_transform(crop=1024):
-    return v2.Compose([
-        v2.CenterCrop(crop),
+def eval_transform(crop=1024, mean=IMAGENET_MEAN, std=IMAGENET_STD):
+    # crop=None keeps the whole image (sizes vary, so use batch size 1). for ablation.
+    return v2.Compose(([v2.CenterCrop(crop)] if crop else []) + [
         v2.ToDtype(torch.float32, scale=True),
-        v2.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)), # ImageNet stats
+        v2.Normalize(mean, std), #changed hardcoded imagenet stats. for ablation.
     ])
 
 # https://docs.pytorch.org/tutorials/beginner/basics/data_tutorial.html
@@ -71,10 +76,11 @@ class S5MarsDataset(Dataset):
         return image, label, self.ids[idx]
 
 def get_dataloaders(batch: int = 8, eval_batch: int = 4, num_workers: int = 4, root=DATA_ROOT,
-                    scale_range=(0.5, 2.0), pin_memory=False):
-    training_data = S5MarsDataset("train", train_transform(scale_range), root)
-    val_data = S5MarsDataset("val", eval_transform(), root)
-    test_data = S5MarsDataset("test", eval_transform(), root)
+                    scale_range=(0.5, 2.0), pin_memory=False, eval_crop=1024,
+                    mean=IMAGENET_MEAN, std=IMAGENET_STD):
+    training_data = S5MarsDataset("train", train_transform(scale_range, mean=mean, std=std), root)
+    val_data = S5MarsDataset("val", eval_transform(eval_crop, mean, std), root)
+    test_data = S5MarsDataset("test", eval_transform(eval_crop, mean, std), root)
 
     loader_args = dict(num_workers=num_workers, pin_memory=pin_memory, persistent_workers=num_workers > 0)
     train_dataloader = DataLoader(training_data, batch_size=batch, shuffle=True, drop_last=True, **loader_args)

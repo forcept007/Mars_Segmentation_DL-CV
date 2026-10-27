@@ -5,7 +5,7 @@ import os
 import numpy as np
 import torch
 
-from data import CLASSES, NUM_CLASSES, IGNORE_INDEX, get_dataloaders
+from data import CLASSES, NUM_CLASSES, IGNORE_INDEX, get_dataloaders, norm_stats
 from models import build_model
 
 def confusion_matrix(pred, target, num_classes=NUM_CLASSES, ignore_index=IGNORE_INDEX):
@@ -98,6 +98,8 @@ if __name__ == "__main__":
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--split", choices=["val", "test"], default="val")
     parser.add_argument("--out-dir")
+    parser.add_argument("--full-res", action="store_true",
+                        help="score whole images (batch size 1) instead of the paper's 1024 center crop")
     args = parser.parse_args()
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -106,11 +108,14 @@ if __name__ == "__main__":
     ckpt = torch.load(args.checkpoint, map_location=device)
     model = build_model({**ckpt.get("model_cfg", {}), "pretrained": False}).to(device)
     model.load_state_dict(ckpt["model"])
-    _, val_loader, test_loader = get_dataloaders()
+    # Changing config to fit the evaluation settings (full-res or crop). for ablation studies.
+    _, val_loader, test_loader = get_dataloaders(eval_batch=1 if args.full_res else 4,
+                                                 eval_crop=None if args.full_res else 1024,
+                                                 **norm_stats(ckpt.get("data_cfg", {})))
     metrics = evaluate(model, val_loader if args.split == "val" else test_loader, device)
     print_metrics(metrics)
 
     run = os.path.basename(os.path.dirname(os.path.abspath(args.checkpoint)))
-    out_dir = args.out_dir or os.path.join("results", run, args.split)
+    out_dir = args.out_dir or os.path.join("results", run, args.split + ("_fullres" if args.full_res else "")) # for ablation
     save_results(metrics, out_dir)
     print(f"saved {out_dir}/metrics.json, per_class.csv, confusion.npy")

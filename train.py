@@ -12,7 +12,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from data import DATA_ROOT, IGNORE_INDEX, S5MarsDataset, eval_transform, get_dataloaders
+from data import DATA_ROOT, IGNORE_INDEX, S5MarsDataset, eval_transform, get_dataloaders, norm_stats
 from evaluate import evaluate
 from models import build_model
 
@@ -46,13 +46,14 @@ def poly_lr(base_lr, it, max_iters, power=0.9):
 
 def build_loaders(cfg, pin_memory):
     root = cfg["root"] or DATA_ROOT
+    norm = norm_stats(cfg)
     if cfg["overfit"]:
-        subset = S5MarsDataset("train", eval_transform(512), root, limit=cfg["overfit"])
+        subset = S5MarsDataset("train", eval_transform(512, **norm), root, limit=cfg["overfit"])
         args = dict(num_workers=cfg["num_workers"], pin_memory=pin_memory, persistent_workers=cfg["num_workers"] > 0)
         return (DataLoader(subset, cfg["batch_size"], shuffle=True, drop_last=True, **args),
                 DataLoader(subset, cfg["eval_batch_size"], **args))
     train_loader, val_loader, _ = get_dataloaders(cfg["batch_size"], cfg["eval_batch_size"], cfg["num_workers"],
-                                                  root, tuple(cfg["scale_range"]), pin_memory)
+                                                  root, tuple(cfg["scale_range"]), pin_memory, **norm)
     return train_loader, val_loader
 
 def forever(loader):
@@ -150,8 +151,8 @@ def main():
             metrics = evaluate(model, val_loader, device)
             if metrics["mIoU"] > best_miou:
                 best_miou, best_iter = metrics["mIoU"], done
-                torch.save({"model": model.state_dict(), "model_cfg": cfg["model"], "iter": done, "mIoU": best_miou},
-                           os.path.join(save_dir, "best.pth"))
+                torch.save({"model": model.state_dict(), "model_cfg": cfg["model"], "data_cfg": cfg["data"],
+                            "iter": done, "mIoU": best_miou}, os.path.join(save_dir, "best.pth"))
             for name in ("mIoU", "mAcc", "aAcc"):
                 writer.add_scalar(f"val/{name}", metrics[name], done)
             writer.add_scalar("val/rock_IoU", metrics["IoU"]["rock"], done)
@@ -164,7 +165,8 @@ def main():
 
         if done % sched["save_interval"] == 0 or done % sched["eval_interval"] == 0 or done == stop_iter:
             torch.save({"model": model.state_dict(), "optimizer": optimizer.state_dict(), "scaler": scaler.state_dict(),
-                        "model_cfg": cfg["model"], "iter": done, "best_miou": best_miou, "best_iter": best_iter}, last_path)
+                        "model_cfg": cfg["model"], "data_cfg": cfg["data"], "iter": done, "best_miou": best_miou,
+                        "best_iter": best_iter}, last_path)
             window_start = time.time()
 
     writer.close()

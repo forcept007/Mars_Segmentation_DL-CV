@@ -20,6 +20,18 @@ def test_base_inheritance_and_overrides():
     assert cfg["data"]["root"] == "/tmp/s5mars" and cfg["optim"]["lr"] == 0.02
     assert cfg["data"]["batch_size"] == 8 and "base" not in cfg
 
+def test_ablation_configs_change_one_thing():
+    base = load_config(os.path.join(REPO, "configs", "baseline_r50_short_1xHeadLR.yaml"))
+    changes = {"abl_os8_short": ("model", "output_stride", 8),
+               "abl_noscale_short": ("data", "scale_range", [1.0, 1.0]),
+               "abl_marsnorm_short": ("data", "mean", [0.6193, 0.5137, 0.3601])}
+    for name, (section, key, value) in changes.items():
+        cfg = load_config(os.path.join(REPO, "configs", name + ".yaml"))
+        assert cfg[section][key] == value
+        cfg[section] = {k: v for k, v in cfg[section].items() if k not in (key, "std")}
+        assert cfg[section] == {k: v for k, v in base[section].items() if k != key}
+        assert {k: v for k, v in cfg.items() if k != section} == {k: v for k, v in base.items() if k != section}
+
 def test_poly_lr():
     assert poly_lr(0.01, 0, 150000) == 0.01
     assert math.isclose(poly_lr(0.01, 75000, 150000), 0.01 * 0.5 ** 0.9)
