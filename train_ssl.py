@@ -173,7 +173,8 @@ def main():
             root = cfg['data']['root']
         train_loader = get_mix_loader(batch=cfg['data']['batch_size'], num_workers=cfg['data']['num_workers'],
                                       sam_root=sam_root, root=root, scale_range=cfg['data']['scale_range'],
-                                      min_pixels=cfg['ssl']['min_pixels'], sigma=cfg['ssl']['mask_sigma'], pin_memory=(device.type == "cuda"))
+                                      min_pixels=cfg['ssl']['min_pixels'], sigma=cfg['ssl']['mask_sigma'], pin_memory=(device.type == "cuda"),
+                                      label_dir=cfg['data'].get('train_label_dir', 'labels'))
 
     # Building the student and teacher. Teacher should start as a copy of the student and then is
     # updated with the exponentional moving average (EMA)
