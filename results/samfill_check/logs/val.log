@@ -1,0 +1,22 @@
+/opt/pytorch/lib/python3.13/site-packages/torch/cuda/__init__.py:68: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+sam 20/197 63s
+sam 40/197 126s
+sam 60/197 185s
+sam 80/197 246s
+sam 100/197 307s
+sam 120/197 365s
+sam 140/197 420s
+sam 160/197 477s
+sam 180/197 539s
+eval 20/200 28s
+eval 40/200 56s
+eval 60/200 84s
+eval 80/200 113s
+eval 100/200 140s
+eval 120/200 169s
+eval 140/200 199s
+eval 160/200 229s
+eval 180/200 257s
+eval 200/200 286s
+done /home/ubuntu/hasita/samfill_test/val_full.json
