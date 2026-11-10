@@ -1,0 +1,136 @@
+== teacher_best test
+/opt/pytorch/lib/python3.13/site-packages/torch/cuda/__init__.py:68: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+class          IoU     Acc  IoU easy  IoU hard
+sky          94.67   96.54     96.31     91.72
+ridge        92.93   96.63     96.36     86.81
+soil         83.57   91.62     90.79     63.31
+sand         75.00   85.81     37.21     81.44
+bedrock      91.69   97.64     89.37     93.60
+rock         17.21   19.02     21.27      8.85
+rover        38.48   79.34     39.24     32.80
+trace        69.71   85.97     87.02     49.05
+hole         52.62   58.20     52.86      0.00
+mean         68.43   78.97     67.82     56.40
+pixel accuracy 92.69
+rock: precision 64.34, recall 19.02, f1 29.36, rock_to_bedrock 76.63, bedrock_to_rock 0.67, fn_predicted_bedrock 94.63, fp_from_bedrock 91.84
+saved results/ssl_full_1xHeadLR/eval/teacher_best/test/metrics.json, per_class.csv, confusion.npy
+== teacher_best val
+/opt/pytorch/lib/python3.13/site-packages/torch/cuda/__init__.py:68: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+class          IoU     Acc  IoU easy  IoU hard
+sky          97.02   97.71     96.58     98.04
+ridge        96.14   99.22     97.25     87.77
+soil         82.96   93.71     90.89     62.86
+sand         75.74   78.92     79.46     74.86
+bedrock      94.05   98.66     92.87     95.20
+rock         36.33   39.09     46.34      4.37
+rover        88.72   90.09     88.72       nan
+trace        62.39   84.46     59.71     70.02
+hole         26.18   26.48     26.18       nan
+mean         73.28   78.70     75.33     70.45
+pixel accuracy 94.58
+rock: precision 83.73, recall 39.09, f1 53.29, rock_to_bedrock 56.89, bedrock_to_rock 0.33, fn_predicted_bedrock 93.39, fp_from_bedrock 64.12
+saved results/ssl_full_1xHeadLR/eval/teacher_best/val/metrics.json, per_class.csv, confusion.npy
+== student_best test
+/opt/pytorch/lib/python3.13/site-packages/torch/cuda/__init__.py:68: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+class          IoU     Acc  IoU easy  IoU hard
+sky          95.15   96.55     96.47     92.75
+ridge        93.05   96.98     96.34     87.19
+soil         83.83   91.46     89.28     67.62
+sand         77.31   89.42     38.87     84.69
+bedrock      91.88   97.43     89.18     94.09
+rock         22.57   25.08     26.71     14.83
+rover        40.13   89.52     39.35     44.45
+trace        78.86   87.23     90.41     62.25
+hole         34.91   36.98     35.06      0.00
+mean         68.63   78.96     66.85     60.88
+pixel accuracy 93.01
+rock: precision 69.29, recall 25.08, f1 36.83, rock_to_bedrock 71.84, bedrock_to_rock 0.75, fn_predicted_bedrock 95.89, fp_from_bedrock 96.69
+saved results/ssl_full_1xHeadLR/eval/student_best/test/metrics.json, per_class.csv, confusion.npy
+== student_best val
+/opt/pytorch/lib/python3.13/site-packages/torch/cuda/__init__.py:68: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+class          IoU     Acc  IoU easy  IoU hard
+sky          96.77   97.77     96.88     96.53
+ridge        96.75   99.00     97.57     90.17
+soil         87.10   95.30     92.93     71.48
+sand         82.00   85.34     90.39     80.00
+bedrock      94.59   98.82     93.49     95.64
+rock         43.12   44.83     53.00     14.51
+rover        61.36   91.09     61.79      0.00
+trace        68.50   85.14     67.81     70.18
+hole         28.08   28.36     28.08       nan
+mean         73.14   80.63     75.77     64.81
+pixel accuracy 95.43
+rock: precision 91.91, recall 44.83, f1 60.26, rock_to_bedrock 52.23, bedrock_to_rock 0.27, fn_predicted_bedrock 94.66, fp_from_bedrock 99.95
+saved results/ssl_full_1xHeadLR/eval/student_best/val/metrics.json, per_class.csv, confusion.npy
+== teacher_last test
+/opt/pytorch/lib/python3.13/site-packages/torch/cuda/__init__.py:68: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+class          IoU     Acc  IoU easy  IoU hard
+sky          95.35   96.91     96.54     93.18
+ridge        93.17   97.01     96.36     87.48
+soil         84.00   91.92     89.29     68.46
+sand         76.45   87.85     34.71     84.83
+bedrock      91.82   97.27     89.21     93.97
+rock         22.33   24.99     26.68     14.29
+rover        36.64   89.41     34.94     48.31
+trace        77.03   88.11     89.20     60.33
+hole         34.12   36.14     34.27      0.00
+mean         67.88   78.85     65.69     61.20
+pixel accuracy 92.94
+rock: precision 67.65, recall 24.99, f1 36.50, rock_to_bedrock 71.03, bedrock_to_rock 0.78, fn_predicted_bedrock 94.69, fp_from_bedrock 94.30
+saved results/ssl_full_1xHeadLR/eval/teacher_last/test/metrics.json, per_class.csv, confusion.npy
+== teacher_last val
+/opt/pytorch/lib/python3.13/site-packages/torch/cuda/__init__.py:68: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+class          IoU     Acc  IoU easy  IoU hard
+sky          96.65   97.94     97.03     95.78
+ridge        96.60   98.84     97.58     88.67
+soil         86.50   95.94     92.63     70.77
+sand         80.51   82.41     90.23     78.15
+bedrock      94.63   98.77     93.57     95.66
+rock         42.76   44.33     52.74     13.79
+rover        59.92   91.48     60.68      0.00
+trace        61.58   86.85     58.59     69.50
+hole         26.53   26.77     26.53       nan
+mean         71.74   80.37     74.40     64.04
+pixel accuracy 95.30
+rock: precision 92.33, recall 44.33, f1 59.90, rock_to_bedrock 51.24, bedrock_to_rock 0.25, fn_predicted_bedrock 92.05, fp_from_bedrock 99.99
+saved results/ssl_full_1xHeadLR/eval/teacher_last/val/metrics.json, per_class.csv, confusion.npy
+== student_last test
+/opt/pytorch/lib/python3.13/site-packages/torch/cuda/__init__.py:68: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+class          IoU     Acc  IoU easy  IoU hard
+sky          95.15   96.55     96.47     92.75
+ridge        93.05   96.98     96.34     87.19
+soil         83.83   91.46     89.28     67.62
+sand         77.31   89.42     38.87     84.69
+bedrock      91.88   97.43     89.18     94.09
+rock         22.57   25.08     26.71     14.83
+rover        40.13   89.52     39.35     44.45
+trace        78.86   87.23     90.41     62.25
+hole         34.91   36.98     35.06      0.00
+mean         68.63   78.96     66.85     60.88
+pixel accuracy 93.01
+rock: precision 69.29, recall 25.08, f1 36.83, rock_to_bedrock 71.84, bedrock_to_rock 0.75, fn_predicted_bedrock 95.89, fp_from_bedrock 96.69
+saved results/ssl_full_1xHeadLR/eval/student_last/test/metrics.json, per_class.csv, confusion.npy
+== student_last val
+/opt/pytorch/lib/python3.13/site-packages/torch/cuda/__init__.py:68: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+class          IoU     Acc  IoU easy  IoU hard
+sky          96.77   97.77     96.88     96.53
+ridge        96.75   99.00     97.57     90.17
+soil         87.10   95.30     92.93     71.48
+sand         82.00   85.34     90.39     80.00
+bedrock      94.59   98.82     93.49     95.64
+rock         43.12   44.83     53.00     14.51
+rover        61.36   91.09     61.79      0.00
+trace        68.50   85.14     67.81     70.18
+hole         28.08   28.36     28.08       nan
+mean         73.14   80.63     75.77     64.81
+pixel accuracy 95.43
+rock: precision 91.91, recall 44.83, f1 60.26, rock_to_bedrock 52.23, bedrock_to_rock 0.27, fn_predicted_bedrock 94.66, fp_from_bedrock 99.95
+saved results/ssl_full_1xHeadLR/eval/student_last/val/metrics.json, per_class.csv, confusion.npy
