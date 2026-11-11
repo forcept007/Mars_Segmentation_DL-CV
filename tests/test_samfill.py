@@ -35,6 +35,9 @@ def test_samfill_configs():
     cfg = load_config(os.path.join(REPO, "configs", "samfill_b1_short.yaml"))
     assert cfg["data"].pop("train_label_dir") == "labels_samfill_rho0.8"
     assert cfg == b1
+    full = load_config(os.path.join(REPO, "configs", "samfill_b1_full.yaml"))
+    assert full["data"].pop("train_label_dir") == "labels_samfill_rho0.8"
+    assert full == load_config(os.path.join(REPO, "configs", "baseline_r50_full_1xHeadLR.yaml"))
     ssl = load_config(os.path.join(REPO, "configs", "samfill_ssl_short.yaml"))
     assert ssl["data"]["train_label_dir"] == "labels_samfill_rho0.8"
     assert ssl["ssl"]["unsup_pixels"] == "all_gt" and ssl["schedule"]["max_iters"] == 40000
