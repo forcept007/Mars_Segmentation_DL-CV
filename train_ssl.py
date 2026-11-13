@@ -99,7 +99,8 @@ def ssl_loss(student_weak: torch.Tensor, student_strong: torch.Tensor, teacher_w
              "hard": torch.bincount(pseudo[hard_mask], minlength=num_classes),
              "soft": torch.bincount(pseudo[soft_mask], minlength=num_classes),
              "both": torch.bincount(pseudo[hard_mask & soft_mask], minlength=num_classes),
-             "blocked": blocked}
+             "blocked": blocked,
+             "labeled": torch.bincount(label[labeled], minlength=num_classes)}
 
     return (loss, stats)
 
@@ -152,7 +153,56 @@ def ema_update(teacher: torch.nn.Module, student: torch.nn.Module, m: float):
 def zero_counts(device):
     # Per-class pixel counters for one log window, one per key of the stats returned by ssl_loss
     return {key: torch.zeros(NUM_CLASSES, device=device, dtype=torch.long)
-            for key in ("unlabeled", "hard", "soft", "both", "blocked")}
+            for key in ("unlabeled", "hard", "soft", "both", "blocked", "labeled")}
+
+class DriftMonitor:
+    # MS-68 step 3: flags a class whose share of the gap pseudo-labels suddenly jumps, so drift shows up during a run.
+    # Shares are measured over windows of `window` iterations. A class is flagged when its share is above `ratio` times
+    # its own median share over the previous `history` windows and above `min_share`, once `warmup` iterations have
+    # passed. The baseline is the class's own history, not its labeled share: the gaps are mostly ground, so soil sits far
+    # above its labeled share all run long. Replayed on MS-60's coverage.jsonl this flags trace at 46k, rock at 87k, sand
+    # at 99k and rover at 116k, and never soil. The same rule runs on "blocked" (gap_exclude), so a guarded run still warns.
+    def __init__(self, start, window=1000, history=10, ratio=2.0, min_share=0.005, warmup=20000):
+        self.window, self.history, self.ratio, self.min_share, self.warmup = window, history, ratio, min_share, warmup
+        self.start = start                                   # first iteration of the open window
+        self.acc = {key: np.zeros(NUM_CLASSES) for key in ("unlabeled", "blocked", "labeled")}
+        self.past = {"gap": [], "blocked": []}               # shares of the last `history` closed windows
+
+    def update(self, done, counts):
+        # counts: per-class lists for one log window (keys of zero_counts). Returns None while the window is still open,
+        # otherwise (shares, alerts) for the window that just closed.
+        for key in self.acc:
+            self.acc[key] += np.asarray(counts.get(key, 0), dtype=float)
+        if done - self.start < self.window:
+            return None
+        acc = self.acc
+        self.start, self.acc = done, {key: np.zeros(NUM_CLASSES) for key in acc}
+        gap_total = acc["unlabeled"].sum()
+        if gap_total == 0:
+            return None
+        shares = {"gap": acc["unlabeled"] / gap_total, "blocked": acc["blocked"] / gap_total,
+                  "labeled": acc["labeled"] / max(acc["labeled"].sum(), 1)}
+        alerts = []
+        for kind, what in (("gap", "of the gap pseudo-labels"), ("blocked", "of gap pixels blocked by gap_exclude")):
+            share, past = shares[kind], self.past[kind]
+            if done >= self.warmup and len(past) == self.history:
+                base = np.median(past, axis=0)
+                for c in np.flatnonzero((share > self.min_share) & (share > self.ratio * base)):
+                    alerts.append(f"drift at iter {done}: {CLASSES[c]} is {100 * share[c]:.2f}% {what}, up from a median "
+                                  f"of {100 * base[c]:.2f}% over the previous {self.history} windows "
+                                  f"(labeled share {100 * shares['labeled'][c]:.2f}%)")
+            past.append(share)
+            del past[:-self.history]
+        return shares, alerts
+
+    def state_dict(self):
+        return {"start": self.start, "acc": {k: v.tolist() for k, v in self.acc.items()},
+                "past": {k: [s.tolist() for s in v] for k, v in self.past.items()}}
+
+    def load_state_dict(self, state):
+        self.start = state["start"]
+        self.acc = {k: np.array(v, dtype=float) for k, v in state["acc"].items()}
+        self.past = {k: [np.array(s, dtype=float) for s in v] for k, v in state["past"].items()}
 
 def main():
     # First ~30 lines are copied over from train.py to build the student model
@@ -229,8 +279,10 @@ def main():
     # infused in the training loop
     start_iter, best_t_miou, best_t_iter, best_s_miou, best_s_iter = 0, 0.0, 0, 0.0, 0
     last_path = os.path.join(save_dir, "last.pth")
+    monitor_state = None
     if os.path.exists(last_path):
         ckpt = torch.load(last_path, map_location=device)
+        monitor_state = ckpt.get("drift_monitor")
         student.load_state_dict(ckpt["student"])
         teacher.load_state_dict(ckpt["teacher"])
         optimizer.load_state_dict(ckpt["optimizer"])
@@ -247,6 +299,15 @@ def main():
         best_s_miou, best_s_iter = ckpt["best_s_miou"], ckpt["best_s_iter"]
         log.info(f"resumed from {last_path} at iter {start_iter}, "
                     f"lr {train.poly_lr(optim_cfg['lr'], start_iter, sched['max_iters'], optim_cfg['poly_power']):.6f}")
+
+    # Drift monitor (MS-68): logging only, on unless ssl.drift_monitor.enabled is false; its other keys override the
+    # DriftMonitor defaults. Its state is saved in last.pth so a resumed run keeps its baseline.
+    monitor_cfg = dict(cfg["ssl"].get("drift_monitor") or {})
+    drift_monitor = None
+    if monitor_cfg.pop("enabled", True):
+        drift_monitor = DriftMonitor(start_iter, **monitor_cfg)
+        if monitor_state is not None:
+            drift_monitor.load_state_dict(monitor_state)
 
     max_iters = sched["max_iters"]
     stop_iter = sched["stop_iter"] or max_iters
@@ -317,7 +378,8 @@ def main():
             with open(os.path.join(save_dir, "coverage.jsonl"), "a") as f:
                 f.write(json.dumps({"iter": done, "unlabeled": cpu_counts["unlabeled"], "hard":
                                     cpu_counts["hard"], "soft": cpu_counts["soft"],
-                                    "both": cpu_counts["both"], "blocked": cpu_counts["blocked"]}) + "\n")
+                                    "both": cpu_counts["both"], "blocked": cpu_counts["blocked"],
+                                    "labeled": cpu_counts["labeled"]}) + "\n")
 
             for key in ("hard", "soft", "both"):
                 for i, c in enumerate(CLASSES):
@@ -330,6 +392,17 @@ def main():
             for i, c in enumerate(CLASSES):
                 if cpu_counts["blocked"][i] and gap_total:
                     writer.add_scalar(f"coverage/blocked/{c}", cpu_counts["blocked"][i] / gap_total, done)
+            if drift_monitor is not None:
+                closed = drift_monitor.update(done, cpu_counts)
+                if closed is not None:
+                    shares, alerts = closed
+                    for kind in ("gap", "labeled", "blocked"):
+                        if kind == "blocked" and not shares[kind].any():
+                            continue
+                        for c, value in zip(CLASSES, shares[kind]):
+                            writer.add_scalar(f"drift/{kind}_share/{c}", value, done)
+                    for alert in alerts:
+                        log.warning(alert)
 
             counts = zero_counts(device)
             if threshold_manager is not None:
@@ -380,6 +453,8 @@ def main():
                         "best_t_miou": best_t_miou, "best_t_iter": best_t_iter}
             if threshold_manager is not None:
                 checkpoint["method1_thresholds"] = threshold_manager.state_dict()
+            if drift_monitor is not None:
+                checkpoint["drift_monitor"] = drift_monitor.state_dict()
             torch.save(checkpoint, last_path)
             window_start = time.time()
 
