@@ -51,6 +51,25 @@ def ssl_loss(student_weak: torch.Tensor, student_strong: torch.Tensor, teacher_w
     else:
         L_sup = student_weak.sum() * 0.0
 
+    # MS-68 guard. gap_exclude lists classes that are always fully labeled when they appear (rover in S5Mars), so an
+    # annotation gap (strong-view label 255) is never one of them. On gap pixels the teacher is conditioned on "not these
+    # classes": their logits become -inf, so the hard target is the best remaining class and the soft target is
+    # renormalized without them. Labeled pixels are never changed. "blocked" counts gap pixels whose teacher argmax was
+    # an excluded class, i.e. the pseudo-labels the guard removed. An empty list (the default) changes nothing.
+    num_classes = teacher_weak.shape[1]
+    blocked = torch.zeros(num_classes, dtype=torch.long, device=teacher_weak.device)
+    exclude = cfg.get("gap_exclude") or []
+    if exclude:
+        unknown = [name for name in exclude if name not in CLASSES]
+        if unknown or len(set(exclude)) >= num_classes:
+            raise ValueError(f"gap_exclude must name some, not all, of {CLASSES}; got {exclude}")
+        excluded = torch.zeros(num_classes, dtype=torch.bool, device=teacher_weak.device)
+        excluded[[CLASSES.index(name) for name in exclude]] = True
+        gap = label_strong == 255
+        raw_pseudo = teacher_weak.argmax(dim=1)
+        blocked = torch.bincount(raw_pseudo[gap & excluded[raw_pseudo]], minlength=num_classes)
+        teacher_weak = teacher_weak.masked_fill(gap[:, None] & excluded[None, :, None, None], float("-inf"))
+
     prob = teacher_weak.softmax(dim=1)
     conf, pseudo = prob.max(dim=1)
 
@@ -76,11 +95,11 @@ def ssl_loss(student_weak: torch.Tensor, student_strong: torch.Tensor, teacher_w
     loss = L_sup + cfg['lambda_u'] * (hard + cfg['lambda_s'] * soft)
 
     # Return the number of pixels per class per label
-    num_classes = teacher_weak.shape[1]
     stats = {"unlabeled": torch.bincount(pseudo[unlabeled], minlength=num_classes),
              "hard": torch.bincount(pseudo[hard_mask], minlength=num_classes),
              "soft": torch.bincount(pseudo[soft_mask], minlength=num_classes),
-             "both": torch.bincount(pseudo[hard_mask & soft_mask], minlength=num_classes)}
+             "both": torch.bincount(pseudo[hard_mask & soft_mask], minlength=num_classes),
+             "blocked": blocked}
 
     return (loss, stats)
 
@@ -129,6 +148,11 @@ def ema_update(teacher: torch.nn.Module, student: torch.nn.Module, m: float):
         # Applying the update value returned from ema_momentum to the buffers of teacher and student
         for teacher_b, student_b in zip(teacher.buffers(), student.buffers()):
             teacher_b.copy_(teacher_b * m + (1 - m) * student_b.detach())
+
+def zero_counts(device):
+    # Per-class pixel counters for one log window, one per key of the stats returned by ssl_loss
+    return {key: torch.zeros(NUM_CLASSES, device=device, dtype=torch.long)
+            for key in ("unlabeled", "hard", "soft", "both", "blocked")}
 
 def main():
     # First ~30 lines are copied over from train.py to build the student model
@@ -229,8 +253,7 @@ def main():
     batches = train.forever(train_loader)
     student.train()
     loss_sum, window, window_start = torch.zeros((), device=device), 0, time.time()
-    counts = {"unlabeled": torch.zeros((NUM_CLASSES), device=device, dtype=torch.long), "hard": torch.zeros((NUM_CLASSES), device=device, dtype=torch.long), 
-              "soft": torch.zeros((NUM_CLASSES), device=device, dtype=torch.long), "both": torch.zeros((NUM_CLASSES), device=device, dtype=torch.long)}
+    counts = zero_counts(device)
     for it in range(start_iter, stop_iter):
         lr = train.poly_lr(optim_cfg["lr"], it, max_iters, optim_cfg["poly_power"])
         for group in optimizer.param_groups:
@@ -292,21 +315,23 @@ def main():
 
             cpu_counts = {key: value.tolist() for key, value in counts.items()}
             with open(os.path.join(save_dir, "coverage.jsonl"), "a") as f:
-                f.write(json.dumps({"iter": done, "unlabeled": cpu_counts["unlabeled"], "hard": 
+                f.write(json.dumps({"iter": done, "unlabeled": cpu_counts["unlabeled"], "hard":
                                     cpu_counts["hard"], "soft": cpu_counts["soft"],
-                                    "both": cpu_counts["both"]}) + "\n")
+                                    "both": cpu_counts["both"], "blocked": cpu_counts["blocked"]}) + "\n")
 
-                for key in cpu_counts:
-                    if key == "unlabeled":
+            for key in ("hard", "soft", "both"):
+                for i, c in enumerate(CLASSES):
+                    if cpu_counts["unlabeled"][i] == 0:
                         continue
-                    for i, c in enumerate(CLASSES):
-                        if cpu_counts["unlabeled"][i] == 0:
-                            continue
-                        share = cpu_counts[key][i] / cpu_counts["unlabeled"][i]
-                        writer.add_scalar(f"coverage/{key}/{c}", share, done)
-            
-            counts = {"unlabeled": torch.zeros((NUM_CLASSES), device=device, dtype=torch.long), "hard": torch.zeros((NUM_CLASSES), device=device, dtype=torch.long), 
-                      "soft": torch.zeros((NUM_CLASSES), device=device, dtype=torch.long), "both": torch.zeros((NUM_CLASSES), device=device, dtype=torch.long)}
+                    share = cpu_counts[key][i] / cpu_counts["unlabeled"][i]
+                    writer.add_scalar(f"coverage/{key}/{c}", share, done)
+            # Guarded runs: share of all counted gap pixels whose teacher argmax was an excluded class
+            gap_total = sum(cpu_counts["unlabeled"])
+            for i, c in enumerate(CLASSES):
+                if cpu_counts["blocked"][i] and gap_total:
+                    writer.add_scalar(f"coverage/blocked/{c}", cpu_counts["blocked"][i] / gap_total, done)
+
+            counts = zero_counts(device)
             if threshold_manager is not None:
                 thresholds = threshold_manager.thresholds.detach().cpu().tolist()
                 active = it >= method1_cfg["warmup_iters"]
