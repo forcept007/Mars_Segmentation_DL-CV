@@ -1,0 +1,65 @@
+train finished
+/opt/pytorch/lib/python3.13/site-packages/torch/cuda/__init__.py:68: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+class          IoU     Acc  IoU easy  IoU hard
+sky          97.14   98.08     97.50     96.31
+ridge        96.85   98.89     97.80     89.36
+soil         81.65   91.43     88.78     63.52
+sand         77.13   81.82     90.12     74.13
+bedrock      94.07   97.99     92.42     95.68
+rock         52.43   57.45     58.48     36.07
+rover        93.37   98.74     93.37       nan
+trace        59.20   95.06     53.21     73.26
+hole         52.29   77.96     52.29       nan
+mean         78.24   88.60     80.44     75.47
+pixel accuracy 94.88
+rock: precision 85.73, recall 57.45, f1 68.79, rock_to_bedrock 37.34, bedrock_to_rock 0.65, fn_predicted_bedrock 87.76, fp_from_bedrock 99.87
+saved results/samfill_b1_full/val/metrics.json, per_class.csv, confusion.npy
+/opt/pytorch/lib/python3.13/site-packages/torch/cuda/__init__.py:68: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+class          IoU     Acc  IoU easy  IoU hard
+sky          95.00   96.36     96.09     93.05
+ridge        93.36   97.54     96.24     88.23
+soil         81.92   89.54     88.91     62.25
+sand         73.92   87.75     40.75     80.57
+bedrock      91.26   96.74     88.58     93.48
+rock         26.38   32.00     27.95     23.49
+rover        72.48   89.03     75.31     61.24
+trace        67.92   77.58     69.20     66.25
+hole         39.08   58.01     38.98     57.85
+mean         71.26   80.51     69.11     69.60
+pixel accuracy 92.53
+rock: precision 60.06, recall 32.00, f1 41.75, rock_to_bedrock 64.38, bedrock_to_rock 1.46, fn_predicted_bedrock 94.67, fp_from_bedrock 98.49
+saved results/samfill_b1_full/test/metrics.json, per_class.csv, confusion.npy
+/opt/pytorch/lib/python3.13/site-packages/torch/cuda/__init__.py:68: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+class          IoU     Acc  IoU easy  IoU hard
+sky          95.23   95.73     94.55     96.80
+ridge        96.29   99.06     96.95     91.05
+soil         81.10   90.69     89.27     60.56
+sand         75.17   80.40     90.49     71.65
+bedrock      94.22   98.48     92.90     95.49
+rock         52.03   54.57     60.80     26.85
+rover        60.35   97.44     60.35       nan
+trace        60.00   95.03     55.76     68.92
+hole         54.23   77.50     54.23       nan
+mean         74.29   87.66     77.26     73.05
+pixel accuracy 94.65
+rock: precision 91.78, recall 54.57, f1 68.45, rock_to_bedrock 40.81, bedrock_to_rock 0.33, fn_predicted_bedrock 89.85, fp_from_bedrock 99.73
+saved results/samfill_b1_full/last_val/metrics.json, per_class.csv, confusion.npy
+/opt/pytorch/lib/python3.13/site-packages/torch/cuda/__init__.py:68: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+class          IoU     Acc  IoU easy  IoU hard
+sky          94.32   95.37     95.66     91.91
+ridge        92.82   97.41     96.01     87.16
+soil         81.94   88.95     89.72     59.93
+sand         75.84   89.36     49.40     80.82
+bedrock      91.57   97.54     89.03     93.68
+rock         23.84   26.85     26.18     19.44
+rover        72.24   88.44     74.99     61.34
+trace        69.25   79.60     71.04     66.89
+hole         33.92   54.25     33.82     52.18
+mean         70.64   79.75     69.54     68.15
+pixel accuracy 92.67
+rock: precision 68.07, recall 26.85, f1 38.51, rock_to_bedrock 69.65, bedrock_to_rock 0.86, fn_predicted_bedrock 95.21, fp_from_bedrock 98.08
+saved results/samfill_b1_full/last_test/metrics.json, per_class.csv, confusion.npy

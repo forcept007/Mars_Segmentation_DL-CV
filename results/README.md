@@ -9,6 +9,7 @@ Where each experiment's results are. `evaluate.py` writes to `results/<run>/<spl
 | Method 1, class-adaptive thresholds (MS-33) | `ms33_method1_short_40k/` | `runs/ms33_method1_short_40k/` |
 | Linear probe check (H6) | `h6_probe/` | - |
 | SAM gap filling offline checks (proposed method 3) | `samfill_check/` (see its README) | - |
+| B1 trained on SAM-filled labels, full schedule (method 3) | `samfill_b1_full/` (see its README) | `runs/samfill_b1_full/` |
 | Error and confidence analysis (MS-28, MS-32) | `analysis/results/` | - |
 
 Model checkpoints (`.pth`) are not in git because of their size.
