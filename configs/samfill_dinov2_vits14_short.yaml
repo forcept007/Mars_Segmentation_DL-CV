@@ -1,0 +1,4 @@
+# Combined methods 2 and 3: DINOv2 short trained on SAM gap-filled labels
+base: dinov2_vits14_short.yaml
+data:
+  train_label_dir: labels_samfill_rho0.8
