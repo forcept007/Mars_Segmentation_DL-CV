@@ -1,0 +1,4 @@
+# DINOv2 ViT-S short (40k) without random rescale (the MS-38 no-rescale change on top of DINOv2)
+base: dinov2_vits14_short.yaml
+data:
+  scale_range: [1.0, 1.0]
