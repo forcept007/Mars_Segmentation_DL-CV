@@ -11,10 +11,9 @@ from matplotlib.patches import Patch
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
-from data import CLASSES, NUM_CLASSES, IGNORE_INDEX, S5MarsDataset, train_transform
+from data import CLASSES, NUM_CLASSES, IGNORE_INDEX, PALETTE, S5MarsDataset, train_transform
 from check_labels import LabelCounts
 
-PALETTE = ["#4e79a7", "#f28e2b", "#e15759", "#edc948", "#59a14f", "#b07aa1", "#ff9da7", "#9c755f", "#76b7b2"]
 MEAN = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
 STD = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
 

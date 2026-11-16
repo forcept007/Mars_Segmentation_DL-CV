@@ -229,3 +229,6 @@ S5Mars_data.zip
 results_from_ec2/
 *.pem
 *.pth
+# Demo: model checkpoints and cached predictions/videos
+demo/checkpoints/
+demo/cache/

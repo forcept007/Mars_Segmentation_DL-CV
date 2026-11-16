@@ -13,6 +13,8 @@ DATA_ROOT = os.environ.get("S5MARS_ROOT", os.path.join(os.path.dirname(os.path.a
 CLASSES = ["sky", "ridge", "soil", "sand", "bedrock", "rock", "rover", "trace", "hole"]
 NUM_CLASSES = len(CLASSES)
 IGNORE_INDEX = 255
+# Class colours shared by figures and the demo, in CLASSES order
+PALETTE = ["#4e79a7", "#f28e2b", "#e15759", "#edc948", "#59a14f", "#b07aa1", "#ff9da7", "#9c755f", "#76b7b2"]
 IMAGENET_MEAN, IMAGENET_STD = (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
 
 def norm_stats(data_cfg):
