@@ -14,6 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from data import DATA_ROOT, IGNORE_INDEX, S5MarsDataset, eval_transform, get_dataloaders, norm_stats
 from evaluate import evaluate
+from losses import lovasz_softmax
 from models import build_model
 
 parser = argparse.ArgumentParser()
@@ -101,6 +102,7 @@ def main():
                                     weight_decay=optim_cfg["weight_decay"])
     scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
     criterion = nn.CrossEntropyLoss(ignore_index=IGNORE_INDEX)
+    lovasz_weight = cfg.get("loss", {}).get("lovasz_weight", 0)  # Method 4, off by default
     writer = SummaryWriter(os.path.join(save_dir, "tb"))
 
     start_iter, best_miou, best_iter = 0, 0.0, 0
@@ -128,7 +130,10 @@ def main():
         x, y, _ = next(batches)
         x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
         with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=use_amp):
-            loss = criterion(model(x), y)
+            out = model(x)
+            loss = criterion(out, y)
+        if lovasz_weight:
+            loss = loss + lovasz_weight * lovasz_softmax(out.float(), y)  # outside autocast, in float32
         optimizer.zero_grad(set_to_none=True)
         scaler.scale(loss).backward()
         scaler.step(optimizer)

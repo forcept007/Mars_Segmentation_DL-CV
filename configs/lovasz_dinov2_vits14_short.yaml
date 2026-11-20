@@ -1,0 +1,4 @@
+# Method 4: CE + Lovász-softmax on DINOv2 ViT-S short (40k)
+base: dinov2_vits14_short.yaml
+loss:
+  lovasz_weight: 1.0
