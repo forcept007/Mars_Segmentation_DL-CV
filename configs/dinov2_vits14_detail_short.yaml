@@ -1,0 +1,4 @@
+base: dinov2_vits14_short.yaml
+model:
+  detail_branch: true
+  detail_channels: 32

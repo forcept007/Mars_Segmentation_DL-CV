@@ -13,7 +13,10 @@ MODEL_DEFAULTS = {"encoder": "resnet50", "output_stride": 16, "pretrained": True
                   "weights_path": WEIGHTS_PATH, "num_classes": NUM_CLASSES,
                   "hub_dir": None,
                   "dinov2_weights": None,
-                  "dilations": None}
+                  "dilations": None,
+                  # MS-64: stride-4 conv branch on the raw image, concatenated into the decoder skip connection
+                  "detail_branch": False,
+                  "detail_channels": 32}
 
 # https://github.com/LiheYoung/UniMatch/blob/main/model/backbone/resnet.py
 def deep_stem_resnet50(replace_stride_with_dilation, weights_path=None):
@@ -83,21 +86,25 @@ def build_model(cfg=None):
         dilations = (3, 6, 9)
     else:
         dilations = {16: (6, 12, 18), 8: (12, 24, 36)}[cfg["output_stride"]]
-    return DeepLabV3Plus(encoder, low_channels, high_channels, cfg["num_classes"], dilations)
+    return DeepLabV3Plus(encoder, low_channels, high_channels, cfg["num_classes"], dilations,
+                         detail_channels=cfg["detail_channels"] if cfg["detail_branch"] else 0)
 
-def conv_bn_relu(in_ch, out_ch, kernel_size=1, dilation=1):
-    return nn.Sequential(nn.Conv2d(in_ch, out_ch, kernel_size, padding=dilation * (kernel_size // 2), dilation=dilation, bias=False),
+def conv_bn_relu(in_ch, out_ch, kernel_size=1, dilation=1, stride=1):
+    return nn.Sequential(nn.Conv2d(in_ch, out_ch, kernel_size, stride=stride, padding=dilation * (kernel_size // 2), dilation=dilation, bias=False),
                          nn.BatchNorm2d(out_ch),
                          nn.ReLU(inplace=True))
 
 # https://github.com/LiheYoung/UniMatch/blob/main/model/semseg/deeplabv3plus.py
 class DeepLabV3Plus(nn.Module):
-    def __init__(self, encoder, low_channels, high_channels, num_classes=NUM_CLASSES, dilations=(6, 12, 18)):
+    def __init__(self, encoder, low_channels, high_channels, num_classes=NUM_CLASSES, dilations=(6, 12, 18),
+                 detail_channels=0):
         super().__init__()
         self.encoder = encoder
         self.aspp = ASPP(high_channels, 256, dilations)
         self.reduce = conv_bn_relu(low_channels, 48)
-        self.fuse = nn.Sequential(conv_bn_relu(256 + 48, 256, 3), conv_bn_relu(256, 256, 3))
+        # MS-64: from-scratch stride-4 conv stem on the raw image, concatenated with the encoder "low" map
+        self.detail = DetailStem(detail_channels) if detail_channels else None
+        self.fuse = nn.Sequential(conv_bn_relu(256 + 48 + detail_channels, 256, 3), conv_bn_relu(256, 256, 3))
         self.classifier = nn.Conv2d(256, num_classes, 1)
 
     def forward(self, x):
@@ -105,8 +112,14 @@ class DeepLabV3Plus(nn.Module):
         feats = self.encoder(x)
         low = self.reduce(feats["low"])
         high = self.aspp(feats["high"])
-        high = F.interpolate(high, size=low.shape[-2:], mode="bilinear", align_corners=False)
-        out = self.classifier(self.fuse(torch.cat([low, high], dim=1)))
+        parts = [low, high]
+        if self.detail is not None:
+            detail = self.detail(x)  # stride 4, finer than the ViT stride-14 grid
+            parts = [F.interpolate(p, size=detail.shape[-2:], mode="bilinear", align_corners=False) for p in parts]
+            parts.append(detail)
+        else:
+            parts[1] = F.interpolate(high, size=low.shape[-2:], mode="bilinear", align_corners=False)
+        out = self.classifier(self.fuse(torch.cat(parts, dim=1)))
         return F.interpolate(out, size=(h, w), mode="bilinear", align_corners=False)
 
     def param_groups(self, head_lr_mult=10.0):
@@ -126,3 +139,14 @@ class ASPP(nn.Module):
         outs = [branch(x) for branch in self.branches]
         outs.append(F.interpolate(self.pool(x), size=x.shape[-2:], mode="bilinear", align_corners=False))
         return self.project(torch.cat(outs, dim=1))
+
+class DetailStem(nn.Module):
+    """Three 3x3 conv-BN-ReLU layers on the raw image, total stride 4 (stride 2, stride 2, stride 1)."""
+    def __init__(self, out_ch=32):
+        super().__init__()
+        self.net = nn.Sequential(conv_bn_relu(3, 32, 3, stride=2),
+                                 conv_bn_relu(32, 64, 3, stride=2),
+                                 conv_bn_relu(64, out_ch, 3))
+
+    def forward(self, x):
+        return self.net(x)
