@@ -270,8 +270,13 @@ def main():
         ) if method1_enabled else None
 
     optim_cfg, sched = cfg["optim"], cfg["schedule"]
-    optimizer = torch.optim.SGD(student.param_groups(optim_cfg["head_lr_mult"]), lr=optim_cfg["lr"],
-                                momentum=optim_cfg["momentum"], weight_decay=optim_cfg["weight_decay"])
+    if optim_cfg.get("name", "sgd") == "adamw":
+        optimizer = torch.optim.AdamW(student.param_groups(optim_cfg["head_lr_mult"]), lr=optim_cfg["lr"],
+                                      betas=(0.9, 0.999), weight_decay=optim_cfg["weight_decay"])
+    else:
+        optimizer = torch.optim.SGD(student.param_groups(optim_cfg["head_lr_mult"]), lr=optim_cfg["lr"],
+                                    momentum=optim_cfg["momentum"], weight_decay=optim_cfg["weight_decay"])
+
     scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
     writer = SummaryWriter(os.path.join(save_dir, "tb"))
 
