@@ -53,7 +53,8 @@ def build_loaders(cfg, pin_memory):
         return (DataLoader(subset, cfg["batch_size"], shuffle=True, drop_last=True, **args),
                 DataLoader(subset, cfg["eval_batch_size"], **args))
     train_loader, val_loader, _ = get_dataloaders(cfg["batch_size"], cfg["eval_batch_size"], cfg["num_workers"],
-                                                  root, tuple(cfg["scale_range"]), pin_memory, **norm)
+                                                  root, tuple(cfg["scale_range"]), pin_memory, **norm,
+                                                  train_label_dir=cfg.get("train_label_dir", "labels"))
     return train_loader, val_loader
 
 def forever(loader):

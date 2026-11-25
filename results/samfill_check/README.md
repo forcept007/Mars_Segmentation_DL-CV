@@ -9,6 +9,8 @@ These are small checks we ran before committing to the method. Nothing here trai
 | `val_full.json` | SAM fill against the v4 SSL teacher on hidden boundary pixels, β = 0 and 1 | 200 val images | GPU |
 | `val_beta.json` | β sweep (0, 0.25, 0.5, 0.75, 1) for mixing the teacher's probabilities into the segment vote | 200 val images | GPU |
 
+`scripts/` has the two scripts that made these files (`samfill_check.py` for the train checks, `samfill_val.py` for the val ones) and `logs/` has their printed output. The labels used for training come from `scripts/samfill_labels.py` in the repo root instead.
+
 Each JSON has the raw confusion matrices (rows are the true class, in the order sky, ridge, soil, sand, bedrock, rock, rover, trace, hole), so every number below can be recomputed from them.
 
 ## Boundary test on train (`full_boundary.json`, all SAM masks)

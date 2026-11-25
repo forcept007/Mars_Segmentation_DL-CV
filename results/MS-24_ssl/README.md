@@ -5,11 +5,11 @@ We ran the SSL baseline four times on the short schedule (40k steps, ResNet-50, 
 | Run | Folder | Code | Unsupervised loss | Steps |
 |---|---|---|---|---|
 | v1 | `v1_original_loss/` | main before PR #20 | only on unlabeled pixels, averaged over unlabeled pixels | 40k |
-| v2 | `v2_allpixel_norm/` | `0f4d9f6` | only on unlabeled pixels, averaged over all pixels (AugSeg) | stopped early |
+| v2 | `v2_allpixel_norm/` | `0f4d9f6` | only on unlabeled pixels, averaged over all pixels (AugSeg) | stopped at 3,950 |
 | v3 | `v3_unsup_all_pixels/` | `40edde7` | every pixel gets the teacher target (`unsup_pixels: all`, paper Eq. 3) | stopped at 31,250 |
 | v4 | `v4_unsup_all_gt/` | `0feae40` | every pixel, but labeled pixels use the ground truth as the target (`unsup_pixels: all_gt`) | 40k |
 
-v2 is still only on the instance. Its folder gets filled in the next time the instance is on.
+v2 was stopped at step 3,950 because the coverage log showed the same soil drift as v1, so it never reached a val check and has no eval results. Its folder only has the training logs.
 
 ## Test results
 

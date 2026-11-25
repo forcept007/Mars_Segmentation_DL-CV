@@ -54,18 +54,19 @@ def eval_transform(crop=1024, mean=IMAGENET_MEAN, std=IMAGENET_STD):
 
 # https://docs.pytorch.org/tutorials/beginner/basics/data_tutorial.html
 class S5MarsDataset(Dataset):
-    def __init__(self, split, transform=None, root=DATA_ROOT, limit=None):
+    def __init__(self, split, transform=None, root=DATA_ROOT, limit=None, label_dir="labels"):
         with open(os.path.join(root, "split", split + ".json")) as f:
             self.ids = json.load(f)[:limit]  # e.g. "easy/0271MR..._DXXX"
         self.root = root
         self.transform = transform
+        self.label_dir = label_dir  # e.g. labels_samfill_rho0.8 for SAM gap-filled train labels
 
     def __len__(self):
         return len(self.ids)
 
     def __getitem__(self, idx):
         img_path = os.path.join(self.root, "images", self.ids[idx] + ".jpg")
-        mask_path = os.path.join(self.root, "labels", self.ids[idx] + ".png")
+        mask_path = os.path.join(self.root, self.label_dir, self.ids[idx] + ".png")
 
         # debug with claude
         image = tv_tensors.Image(decode_image(img_path, mode=ImageReadMode.RGB))           # (3,H,W) uint8
@@ -77,8 +78,9 @@ class S5MarsDataset(Dataset):
 
 def get_dataloaders(batch: int = 8, eval_batch: int = 4, num_workers: int = 4, root=DATA_ROOT,
                     scale_range=(0.5, 2.0), pin_memory=False, eval_crop=1024,
-                    mean=IMAGENET_MEAN, std=IMAGENET_STD):
-    training_data = S5MarsDataset("train", train_transform(scale_range, mean=mean, std=std), root)
+                    mean=IMAGENET_MEAN, std=IMAGENET_STD, train_label_dir="labels"):
+    training_data = S5MarsDataset("train", train_transform(scale_range, mean=mean, std=std), root,
+                                  label_dir=train_label_dir)
     val_data = S5MarsDataset("val", eval_transform(eval_crop, mean, std), root)
     test_data = S5MarsDataset("test", eval_transform(eval_crop, mean, std), root)
 

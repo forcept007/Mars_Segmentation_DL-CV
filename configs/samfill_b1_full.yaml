@@ -1,0 +1,4 @@
+# Method 3: B1 full (150k) trained on SAM gap-filled labels (scripts/samfill_labels.py --rho 0.8)
+base: baseline_r50_full_1xHeadLR.yaml
+data:
+  train_label_dir: labels_samfill_rho0.8

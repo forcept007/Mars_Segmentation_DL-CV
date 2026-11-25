@@ -139,8 +139,9 @@ def random_box(h: int, w: int, area_range=(0.02, 0.4), ratio_range=(0.3, 1 / 0.3
     return mask
 
 class SamMixDataset(S5MarsDataset):
-    def __init__(self, split, sam_root, transform=None, root=DATA_ROOT, limit=None, min_pixels=260, sigma=2):
-        super().__init__(split, transform, root, limit)
+    def __init__(self, split, sam_root, transform=None, root=DATA_ROOT, limit=None, min_pixels=260, sigma=2,
+                 label_dir="labels"):
+        super().__init__(split, transform, root, limit, label_dir)
 
         self.sam_root = sam_root
         self.min_pixels = min_pixels
@@ -148,7 +149,7 @@ class SamMixDataset(S5MarsDataset):
 
     def __getitem__(self, idx):
         img_path = os.path.join(self.root, "images", self.ids[idx] + ".jpg")
-        mask_path = os.path.join(self.root, "labels", self.ids[idx] + ".png")
+        mask_path = os.path.join(self.root, self.label_dir, self.ids[idx] + ".png")
 
         image = tv_tensors.Image(decode_image(img_path, mode=ImageReadMode.RGB)) # (3,H,W) uint8
         label = tv_tensors.Mask(load_label(mask_path)) # (H,W) 0–8, 255
@@ -179,8 +180,9 @@ class SamMixDataset(S5MarsDataset):
         return image, label, sam, self.ids[idx]
 
 def get_mix_loader(batch: int, num_workers: int, sam_root: str, root=DATA_ROOT, scale_range=(0.5, 2.0),
-                   min_pixels: int = 260, sigma: float = 2, pin_memory: bool = False):
+                   min_pixels: int = 260, sigma: float = 2, pin_memory: bool = False, label_dir: str = "labels"):
     # Train loader for SAM-Mix (sam_root = folder of precomputed masks) or CutMix (sam_root = None: every mask is a
     # random box). Same weak transform and loader settings as data.get_dataloaders; items are (image, label, mask, id).
-    dataset = SamMixDataset("train", sam_root, train_transform(scale_range), root, min_pixels=min_pixels, sigma=sigma)
+    dataset = SamMixDataset("train", sam_root, train_transform(scale_range), root, min_pixels=min_pixels, sigma=sigma,
+                            label_dir=label_dir)
     return DataLoader(dataset, batch_size=batch, num_workers=num_workers, shuffle=True, drop_last=True, pin_memory=pin_memory, persistent_workers=(num_workers > 0))

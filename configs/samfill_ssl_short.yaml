@@ -1,0 +1,7 @@
+# Method 3 variation: B2 (v4 setting, unsup_pixels all_gt) short with SAM gap-filled labels as ground truth
+base: ssl_s5mars.yaml
+data:
+  train_label_dir: labels_samfill_rho0.8
+schedule:
+  max_iters: 40000
+  eval_interval: 2500   # same as the MS-24 v4 run
