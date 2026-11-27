@@ -1,0 +1,24 @@
+base: dinov2_vits14_short.yaml
+
+# DINOv2 ViT-S + S5Mars SSL (v4 loss) at 40k. Model, optimizer (AdamW) and schedule are inherited from the
+# supervised dinov2_vits14_short run (79.37 test mIoU), so the SSL terms are the only difference.
+# load_config follows one base chain, so the ssl section is copied from ssl_s5mars.yaml, with one change:
+# mix is cutmix instead of sam_mix (CutMix beat SAM-Mix by 7.8 test mIoU in the R50 MS-67 run, and needs no SAM masks).
+ssl:
+  t_hard: 0.5
+  t_soft: 0.9
+  lambda_u: 2.0
+  lambda_s: 1.0
+  unsup_pixels: all_gt
+  ema_max: 0.996
+  strong_aug: sigma
+  mix: cutmix
+  sam_root: '~/data/sam_masks'
+  min_pixels: 260
+  mask_sigma: 2
+  object_transform:
+    max_angle: 30.0
+    scale_range: [0.75, 1.25]
+    flip_p: 0.5
+
+save_dir: runs/ssl_dinov2_vits14_short

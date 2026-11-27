@@ -1,0 +1,8 @@
+base: ssl_s5mars.yaml
+
+# MS-68: B2 (v4 loss) at 150k with the rover guard; recipe and seed otherwise identical to MS-60.
+# Rover was fully labeled in every rover image checked for MS-68, so annotation gaps never get rover pseudo-labels.
+ssl:
+  gap_exclude: [rover]
+
+save_dir: runs/ssl_full_1xHeadLR_rover_guard
